@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#f9f9f9",
+                    "secondary-dim": "#515355",
+                    "on-secondary-fixed-variant": "#5a5c5d",
+                    "surface-dim": "#d3dbdd",
+                    "primary-fixed-dim": "#d4d4d4",
+                    "tertiary-dim": "#6100eb",
+                    "error": "#9e3f4e",
+                    "surface-container-highest": "#dde4e5",
+                    "outline": "#757c7d",
+                    "primary": "#5e5e5e",
+                    "on-secondary-container": "#505254",
+                    "on-surface": "#2d3435",
+                    "primary-dim": "#525252",
+                    "outline-variant": "#acb3b4",
+                    "secondary-fixed-dim": "#d4d4d6",
+                    "surface-container-high": "#e4e9ea",
+                    "surface-tint": "#5e5e5e",
+                    "tertiary": "#6100eb",
+                    "on-primary-fixed-variant": "#5b5b5b",
+                    "surface-bright": "#f9f9f9",
+                    "on-tertiary": "#e9deff",
+                    "on-error-container": "#782232",
+                    "on-background": "#2d3435",
+                    "on-tertiary-fixed": "#f9f1ff",
+                    "on-surface-variant": "#596061",
+                    "error-dim": "#4f0116",
+                    "on-secondary-fixed": "#3e3f41",
+                    "primary-fixed": "#e2e2e2",
+                    "on-error": "#fff7f7",
+                    "on-primary-fixed": "#3f3f3f",
+                    "on-tertiary-fixed-variant": "#cebcff",
+                    "tertiary-fixed-dim": "#6100eb",
+                    "background": "#f9f9f9",
+                    "secondary": "#5e5f61",
+                    "primary-container": "#e2e2e2",
+                    "on-tertiary-container": "#fcf5ff",
+                    "surface-variant": "#dde4e5",
+                    "surface-container": "#ebeeef",
+                    "on-secondary": "#f9f9fb",
+                    "inverse-surface": "#0c0f0f",
+                    "tertiary-container": "#6d23f9",
+                    "surface-container-low": "#f2f4f4",
+                    "error-container": "#ff8b9a",
+                    "on-primary-container": "#525252",
+                    "on-primary": "#f8f8f8",
+                    "inverse-primary": "#ffffff",
+                    "secondary-fixed": "#e2e2e4",
+                    "tertiary-fixed": "#6d23f9",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-container": "#e2e2e4",
+                    "inverse-on-surface": "#9c9d9d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(97, 0, 235, 0.3);
+        }
+        .monolith-glow {
+            box-shadow: 0 0 60px -15px rgba(97, 0, 235, 0.25);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-tertiary selection:text-white">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-[0px_24px_48px_rgba(45,52,53,0.06)]">
+<div class="flex justify-between items-center px-8 h-20 w-full max-w-[1920px] mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black tracking-tighter text-zinc-900 dark:text-zinc-50 font-headline">VERIFY_LEDGER</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-zinc-500 dark:text-zinc-400 hover:text-purple-600 transition-colors" href="#">Platform</a>
+<a class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-purple-700 dark:text-purple-400 border-b-2 border-purple-700 pb-1 transition-colors" href="#">Ledger</a>
+<a class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-zinc-500 dark:text-zinc-400 hover:text-purple-600 transition-colors" href="#">Ecosystem</a>
+<a class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-zinc-500 dark:text-zinc-400 hover:text-purple-600 transition-colors" href="#">Docs</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 bg-surface-container-highest text-on-surface font-headline font-bold uppercase text-sm hover:bg-surface-container-high transition-all">Log In</button>
+<button class="px-6 py-2 bg-on-surface text-surface font-headline font-bold uppercase text-sm hover:bg-primary-dim transition-all">Verify</button>
+</div>
+</div>
+</nav>
+<main class="pt-32 pb-24 px-6 md:px-12 lg:px-24 max-w-[1440px] mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
+<div class="max-w-2xl">
+<h1 class="text-6xl md:text-8xl font-headline font-black tracking-tighter text-on-surface leading-[0.9] mb-6">
+                    CERTIFICATE<br/>AUTHENTICATION
+                </h1>
+<p class="text-on-surface-variant max-w-md font-body leading-relaxed">
+                    This document is cryptographically anchored to the V3-Blockchain Ledger. Its integrity is verified and immutable.
+                </p>
+</div>
+<div class="flex flex-col items-start md:items-end">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.3em] text-tertiary mb-2">STATUS: IMMUTABLE</span>
+<div class="bg-surface-container-low px-4 py-2 flex items-center gap-3">
+<span class="w-2 h-2 bg-tertiary animate-pulse"></span>
+<span class="font-headline font-bold text-sm tracking-tight">BLOCKCHAIN VERIFIED</span>
+</div>
+</div>
+</div>
+<!-- The Certificate Monolith -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-0 border-none">
+<!-- Main Content Area -->
+<div class="lg:col-span-8 bg-surface-container-lowest monolith-glow p-8 md:p-16 relative overflow-hidden">
+<!-- Background Decorative Element -->
+<div class="absolute top-0 right-0 p-8 opacity-5 select-none pointer-events-none">
+<span class="material-symbols-outlined text-[240px]">verified</span>
+</div>
+<div class="relative z-10">
+<div class="mb-20">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">ISSUED TO</span>
+<h2 class="text-4xl md:text-5xl font-headline font-bold text-on-surface mt-2">MARCUS T. STERLING</h2>
+<div class="mt-4 flex gap-8">
+<div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">ID NUMBER</span>
+<p class="font-mono text-sm tracking-widest mt-1">MT-****-9821</p>
+</div>
+<div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">NATIONALITY</span>
+<p class="font-mono text-sm tracking-widest mt-1">U.S.A</p>
+</div>
+</div>
+</div>
+<div class="mb-20">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">CREDENTIAL TYPE</span>
+<h3 class="text-2xl font-headline font-bold text-on-surface mt-2">SENIOR BLOCKCHAIN ARCHITECT &amp; NODE VALIDATOR</h3>
+<p class="mt-4 text-on-surface-variant max-w-lg">
+                            Demonstrated mastery in distributed consensus protocols, cryptographic hashing, and decentralized governance frameworks. Issued upon completion of the V3 Protocol Audit.
+                        </p>
+</div>
+<div class="grid grid-cols-2 gap-12 pt-12 border-t-0">
+<div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">ISSUED BY</span>
+<div class="flex items-center gap-2 mt-2">
+<span class="material-symbols-outlined text-tertiary">corporate_fare</span>
+<p class="font-headline font-bold text-lg">ROOT_NODE_FOUNDATION</p>
+</div>
+</div>
+<div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">ISSUE DATE</span>
+<p class="font-headline font-bold text-lg mt-2 uppercase">12. OCT. 2024</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Verification Sidebar -->
+<div class="lg:col-span-4 bg-surface-container-low p-8 md:p-12 flex flex-col justify-between">
+<div>
+<div class="mb-12">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">VERIFICATION QR</span>
+<div class="mt-4 bg-white p-4 w-40 h-40 shadow-sm">
+<img class="w-full h-full object-contain grayscale" data-alt="minimalist clean black and white QR code for digital certificate verification" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuDsL7cRPariCEK6trRCsqE2zBiq06BQipSfr8bvHSrFz-NkY5L9hQHyoJsJww0FwU_VH9wfvrgv06s6gSpvs1atzT_Y_zk-pLqQwQHGZ8udbCbF69QMN27-O7eOxgyFHrK5V22IR6BD5SoLlvRX7_XJ-djZVA2mTCTWH-_KNetAtf8mgKbtt0I2JIjxTD4Xo0zrVP4HxsAGV6zJCJLFXzVorQ1Q1MoJFebANdMp0cKGCn2JKToUTbXMWHi3JdBYTAEk6_mt6oldU"/>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-4 leading-tight">SCAN TO VALIDATE AUTHENTICITY ON PUBLIC LEDGER EXPLORER</p>
+</div>
+<div class="mb-12">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">TRANSACTION HASH</span>
+<div class="mt-4 bg-surface-container-highest p-4 overflow-hidden">
+<p class="font-mono text-xs break-all leading-relaxed text-secondary-dim">
+                                0x71C7656EC7ab88b098defB751B7401B5f6d8976F34C28D98C1236A98F7E41A22
+                            </p>
+<button class="mt-3 flex items-center gap-2 text-[10px] font-headline font-bold uppercase tracking-widest text-tertiary hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+                                COPY HASH
+                            </button>
+</div>
+</div>
+</div>
+<div class="pt-8 border-t-0">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-on-surface">TRUST SCORE: 100/100</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest">
+<div class="w-full h-full bg-tertiary"></div>
+</div>
+<p class="text-[10px] mt-4 text-on-surface-variant uppercase tracking-widest">ENCRYPTED AT REST</p>
+</div>
+</div>
+</div>
+<!-- Supplementary Info (Asymmetric Layout) -->
+<div class="mt-24 grid grid-cols-1 md:grid-cols-3 gap-12">
+<div class="space-y-4">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">METADATA ENGINE</span>
+<p class="text-sm leading-relaxed text-on-surface-variant">The signature attached to this document is a cryptographic proof generated using the SHA-256 algorithm. It represents a point-in-time state of the registry.</p>
+</div>
+<div class="space-y-4">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">RECOGNITION</span>
+<div class="flex flex-wrap gap-4 pt-2">
+<div class="px-3 py-1 bg-surface-container-high text-[10px] font-bold uppercase tracking-widest">ISO-27001</div>
+<div class="px-3 py-1 bg-surface-container-high text-[10px] font-bold uppercase tracking-widest">EAL-5+</div>
+<div class="px-3 py-1 bg-surface-container-high text-[10px] font-bold uppercase tracking-widest">GDPR-C</div>
+</div>
+</div>
+<div class="space-y-4">
+<span class="text-[10px] font-headline font-bold uppercase tracking-[0.2em] text-outline">AUDIT LOG</span>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] font-mono border-b-0 pb-1">
+<span class="text-outline">MINTED</span>
+<span class="text-on-surface">12.10.24 08:34:21</span>
+</div>
+<div class="flex justify-between text-[10px] font-mono border-b-0 pb-1">
+<span class="text-outline">HASHED</span>
+<span class="text-on-surface">12.10.24 08:35:01</span>
+</div>
+<div class="flex justify-between text-[10px] font-mono border-b-0 pb-1">
+<span class="text-outline">CONFIRMED</span>
+<span class="text-on-surface">12.10.24 08:35:55</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 bg-slate-50 dark:bg-zinc-950">
+<div class="flex flex-col md:flex-row justify-between items-center px-12 w-full max-w-[1920px] mx-auto">
+<div class="mb-6 md:mb-0">
+<span class="font-['Space_Grotesk'] font-bold text-zinc-900 dark:text-zinc-50 tracking-tighter text-lg">VERIFY_LEDGER</span>
+</div>
+<div class="flex gap-8 mb-6 md:mb-0">
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 hover:text-purple-500 transition-opacity" href="#">Whitepaper</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 hover:text-purple-500 transition-opacity" href="#">Transparency</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 hover:text-purple-500 transition-opacity" href="#">Contact</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 hover:text-purple-500 transition-opacity" href="#">Legal</a>
+</div>
+<div class="text-[10px] font-['Inter'] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 text-center md:text-right">
+                © 2024 VERIFY_LEDGER. ARCHITECTURAL DECENTRALIZATION SECURED.
+            </div>
+</div>
+</footer>
+</body></html>

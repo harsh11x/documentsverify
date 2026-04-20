@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VERIFY_LEDGER | Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&amp;family=Inter:wght@100;200;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f9f9f9",
+                        "secondary-dim": "#515355",
+                        "on-secondary-fixed-variant": "#5a5c5d",
+                        "surface-dim": "#d3dbdd",
+                        "primary-fixed-dim": "#d4d4d4",
+                        "tertiary-dim": "#6100eb",
+                        "error": "#9e3f4e",
+                        "surface-container-highest": "#dde4e5",
+                        "outline": "#757c7d",
+                        "primary": "#5e5e5e",
+                        "on-secondary-container": "#505254",
+                        "on-surface": "#2d3435",
+                        "primary-dim": "#525252",
+                        "outline-variant": "#acb3b4",
+                        "secondary-fixed-dim": "#d4d4d6",
+                        "surface-container-high": "#e4e9ea",
+                        "surface-tint": "#5e5e5e",
+                        "tertiary": "#6100eb",
+                        "on-primary-fixed-variant": "#5b5b5b",
+                        "surface-bright": "#f9f9f9",
+                        "on-tertiary": "#e9deff",
+                        "on-error-container": "#782232",
+                        "on-background": "#2d3435",
+                        "on-tertiary-fixed": "#f9f1ff",
+                        "on-surface-variant": "#596061",
+                        "error-dim": "#4f0116",
+                        "on-secondary-fixed": "#3e3f41",
+                        "primary-fixed": "#e2e2e2",
+                        "on-error": "#fff7f7",
+                        "on-primary-fixed": "#3f3f3f",
+                        "on-tertiary-fixed-variant": "#cebcff",
+                        "tertiary-fixed-dim": "#6100eb",
+                        "background": "#f9f9f9",
+                        "secondary": "#5e5f61",
+                        "primary-container": "#e2e2e2",
+                        "on-tertiary-container": "#fcf5ff",
+                        "surface-variant": "#dde4e5",
+                        "surface-container": "#ebeeef",
+                        "on-secondary": "#f9f9fb",
+                        "inverse-surface": "#0c0f0f",
+                        "tertiary-container": "#6d23f9",
+                        "surface-container-low": "#f2f4f4",
+                        "error-container": "#ff8b9a",
+                        "on-primary-container": "#525252",
+                        "on-primary": "#f8f8f8",
+                        "inverse-primary": "#ffffff",
+                        "secondary-fixed": "#e2e2e4",
+                        "tertiary-fixed": "#6d23f9",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#e2e2e4",
+                        "inverse-on-surface": "#9c9d9d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-tertiary-container selection:text-on-tertiary">
+<!-- SideNavBar (Authority: JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-100 dark:bg-zinc-900 flex flex-col h-full py-8 px-4 font-['Inter'] text-sm tracking-wide font-medium z-40">
+<!-- Brand / Org Header -->
+<div class="mb-12 px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-on-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-surface" data-icon="token">token</span>
+</div>
+<div>
+<h2 class="text-on-surface font-bold leading-none tracking-tight">Root Node</h2>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">V3-Blockchain-Verified</p>
+</div>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 transition-all duration-150 text-zinc-900 dark:text-zinc-50 font-bold bg-white dark:bg-zinc-800" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 transition-all duration-150 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800" href="#">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+<span>Certificates</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 transition-all duration-150 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800" href="#">
+<span class="material-symbols-outlined" data-icon="corporate_fare">corporate_fare</span>
+<span>Organizations</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 transition-all duration-150 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800" href="#">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+<span>Audit Log</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 transition-all duration-150 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<!-- CTA & Footer Nav -->
+<div class="mt-auto space-y-6">
+<button class="w-full bg-on-surface text-surface py-4 px-4 font-bold text-xs uppercase tracking-[0.2em] hover:bg-tertiary transition-colors">
+                Issue New Hash
+            </button>
+<div class="space-y-1 pt-6 border-t border-outline-variant/10">
+<a class="flex items-center gap-3 px-4 py-2 text-zinc-500 dark:text-zinc-400 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="help_outline">help_outline</span>
+<span class="text-xs">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-zinc-500 dark:text-zinc-400 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="code">code</span>
+<span class="text-xs">API</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen p-12">
+<!-- Header / Stats Row (Architectural Scale) -->
+<header class="flex justify-between items-end mb-16">
+<div>
+<span class="text-[10px] uppercase tracking-[0.3em] text-on-surface-variant mb-2 block">System Dashboard</span>
+<h1 class="headline text-6xl font-bold tracking-tighter text-on-surface">Overview.</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant">Admin Identity</p>
+<p class="font-bold text-sm">0x71C...392A</p>
+</div>
+<div class="w-12 h-12 bg-surface-container-highest border border-outline-variant/20 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional portrait of an organization administrator with a clean minimalist background and sharp lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx3ldFUdv5sl-Kirv6q2WfMwH1_OR1ZsUpfeaAuLF66LL0jw9etR1mgbCfUNnbKi6VDsmMBUuzv-siNI0PEfIjmBucHg5zXvdgKrOxGsvpcKs-McCd__kr5IBXc_e6PGViGMnRGMQ-yPTVyrmZpQfV-LVwCc7chP2Cl8EBoF8JmQ2iAVIuDmc6licSvonC-a8m_aCX8jffBrwRcVsQzfgqLtJzP5ztL9rvFMirDUUDKO-1JZivVz633HUgNTNrhlAkAqNoF-oO4f4"/>
+</div>
+</div>
+</header>
+<!-- KPI Cards (Bento Style Grid) -->
+<section class="grid grid-cols-12 gap-6 mb-16">
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-8 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-tertiary/5 -mr-16 -mt-16 group-hover:bg-tertiary/10 transition-colors"></div>
+<span class="material-symbols-outlined text-tertiary mb-6" data-icon="workspace_premium" data-weight="fill" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<p class="text-[11px] uppercase tracking-[0.2em] text-on-surface-variant font-semibold">Total Certificates Issued</p>
+<h3 class="headline text-4xl font-bold mt-2">12,842</h3>
+<div class="mt-4 flex items-center gap-2 text-xs text-green-600 font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+<span>+14.2% THIS MONTH</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-4 bg-surface-container-low p-8">
+<span class="material-symbols-outlined text-on-surface mb-6" data-icon="task_alt">task_alt</span>
+<p class="text-[11px] uppercase tracking-[0.2em] text-on-surface-variant font-semibold">Recent Verifications</p>
+<h3 class="headline text-4xl font-bold mt-2">492</h3>
+<p class="mt-4 text-xs text-on-surface-variant uppercase tracking-widest">Last 24 Hours</p>
+</div>
+<div class="col-span-12 md:col-span-4 bg-tertiary p-8 text-on-tertiary shadow-[0px_24px_48px_rgba(97,0,235,0.15)]">
+<span class="material-symbols-outlined mb-6" data-icon="hub">hub</span>
+<p class="text-[11px] uppercase tracking-[0.2em] opacity-80 font-semibold">System Status</p>
+<h3 class="headline text-4xl font-bold mt-2">Optimal</h3>
+<div class="mt-4 flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+<span class="text-xs uppercase tracking-widest font-bold">Mainnet Node Live</span>
+</div>
+</div>
+</section>
+<!-- Verification Monolith / Action Center -->
+<section class="mb-16 grid grid-cols-12 gap-8 items-center">
+<div class="col-span-12 lg:col-span-7 bg-surface-container-lowest p-1 bg-gradient-to-br from-surface-container-highest to-surface">
+<div class="bg-surface-container-lowest p-10 border border-outline-variant/10">
+<div class="flex justify-between items-start mb-8">
+<h4 class="headline text-2xl font-bold tracking-tight">Recent Certificates</h4>
+<button class="text-[10px] uppercase tracking-[0.2em] font-bold text-tertiary hover:underline">View Ledger Index</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant border-b border-outline-variant/10">
+<th class="pb-4 font-semibold">Certificate ID</th>
+<th class="pb-4 font-semibold">Recipient</th>
+<th class="pb-4 font-semibold">Date</th>
+<th class="pb-4 font-semibold">Status</th>
+</tr>
+</thead>
+<tbody class="text-sm font-medium">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-5 font-mono text-xs text-on-surface-variant">#C-8291-XA</td>
+<td class="py-5">Sarah J. Miller</td>
+<td class="py-5 text-on-surface-variant">Oct 24, 2023</td>
+<td class="py-5">
+<span class="bg-surface-container-highest px-3 py-1 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 w-fit">
+<span class="w-1.5 h-1.5 bg-tertiary rounded-full"></span> Confirmed
+                                        </span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-5 font-mono text-xs text-on-surface-variant">#C-8292-XB</td>
+<td class="py-5">Marcus Thorne</td>
+<td class="py-5 text-on-surface-variant">Oct 24, 2023</td>
+<td class="py-5">
+<span class="bg-surface-container-highest px-3 py-1 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 w-fit">
+<span class="w-1.5 h-1.5 bg-tertiary rounded-full"></span> Confirmed
+                                        </span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-5 font-mono text-xs text-on-surface-variant">#C-8295-XC</td>
+<td class="py-5">Elena Rodriguez</td>
+<td class="py-5 text-on-surface-variant">Oct 23, 2023</td>
+<td class="py-5">
+<span class="bg-tertiary-container/10 px-3 py-1 text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 w-fit text-tertiary">
+<span class="w-1.5 h-1.5 bg-tertiary rounded-full animate-pulse"></span> Indexing
+                                        </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-5 flex flex-col gap-6">
+<div class="bg-on-surface text-surface p-10 relative overflow-hidden">
+<div class="absolute -bottom-10 -right-10 opacity-10">
+<span class="material-symbols-outlined text-[160px]" data-icon="qr_code_2">qr_code_2</span>
+</div>
+<h4 class="headline text-2xl font-bold mb-4">Instant Issuance</h4>
+<p class="text-sm text-surface-dim mb-8 max-w-xs font-light leading-relaxed">Broadcast new verification hashes directly to the immutable ledger in real-time.</p>
+<button class="bg-tertiary text-white py-4 px-8 font-bold text-xs uppercase tracking-[0.2em] flex items-center gap-3 w-fit group">
+                        Issue New Certificate
+                        <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="bg-surface-container-low p-10 flex flex-col justify-center border border-outline-variant/10">
+<p class="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">Node Hash Rate</p>
+<div class="h-32 flex items-end gap-1">
+<div class="w-full bg-on-surface/5 h-1/2"></div>
+<div class="w-full bg-on-surface/10 h-3/4"></div>
+<div class="w-full bg-on-surface/5 h-2/3"></div>
+<div class="w-full bg-on-surface/20 h-full"></div>
+<div class="w-full bg-tertiary/40 h-5/6"></div>
+<div class="w-full bg-on-surface/10 h-1/2"></div>
+<div class="w-full bg-on-surface/5 h-2/3"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer (Authority: JSON) -->
+<footer class="ml-64 bg-slate-50 dark:bg-zinc-950 w-auto py-12 flex flex-col md:flex-row justify-between items-center px-12 border-t-0 font-['Inter'] text-[10px] uppercase tracking-[0.2em]">
+<div class="font-['Space_Grotesk'] font-bold text-zinc-900 dark:text-zinc-50 text-base tracking-tighter">
+            VERIFY_LEDGER
+        </div>
+<div class="text-zinc-400 dark:text-zinc-600 my-8 md:my-0 text-center md:text-left">
+            © 2024 VERIFY_LEDGER. ARCHITECTURAL DECENTRALIZATION SECURED.
+        </div>
+<div class="flex gap-8">
+<a class="text-zinc-400 dark:text-zinc-600 hover:text-purple-500 dark:hover:text-purple-400 transition-opacity opacity-80 hover:opacity-100" href="#">Whitepaper</a>
+<a class="text-zinc-400 dark:text-zinc-600 hover:text-purple-500 dark:hover:text-purple-400 transition-opacity opacity-80 hover:opacity-100 underline decoration-purple-600" href="#">Transparency</a>
+<a class="text-zinc-400 dark:text-zinc-600 hover:text-purple-500 dark:hover:text-purple-400 transition-opacity opacity-80 hover:opacity-100" href="#">Contact</a>
+<a class="text-zinc-400 dark:text-zinc-600 hover:text-purple-500 dark:hover:text-purple-400 transition-opacity opacity-80 hover:opacity-100" href="#">Legal</a>
+</div>
+</footer>
+</body></html>

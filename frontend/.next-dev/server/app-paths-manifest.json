@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/stitch/[slug]/route": "app/stitch/[slug]/route.js",
+  "/certificate-verification/page": "app/certificate-verification/page.js",
+  "/signup/page": "app/signup/page.js"
+}

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Organization Registration | VERIFY_LEDGER</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f9f9f9",
+                        "secondary-dim": "#515355",
+                        "on-secondary-fixed-variant": "#5a5c5d",
+                        "surface-dim": "#d3dbdd",
+                        "primary-fixed-dim": "#d4d4d4",
+                        "tertiary-dim": "#6100eb",
+                        "error": "#9e3f4e",
+                        "surface-container-highest": "#dde4e5",
+                        "outline": "#757c7d",
+                        "primary": "#5e5e5e",
+                        "on-secondary-container": "#505254",
+                        "on-surface": "#2d3435",
+                        "primary-dim": "#525252",
+                        "outline-variant": "#acb3b4",
+                        "secondary-fixed-dim": "#d4d4d6",
+                        "surface-container-high": "#e4e9ea",
+                        "surface-tint": "#5e5e5e",
+                        "tertiary": "#6100eb",
+                        "on-primary-fixed-variant": "#5b5b5b",
+                        "surface-bright": "#f9f9f9",
+                        "on-tertiary": "#e9deff",
+                        "on-error-container": "#782232",
+                        "on-background": "#2d3435",
+                        "on-tertiary-fixed": "#f9f1ff",
+                        "on-surface-variant": "#596061",
+                        "error-dim": "#4f0116",
+                        "on-secondary-fixed": "#3e3f41",
+                        "primary-fixed": "#e2e2e2",
+                        "on-error": "#fff7f7",
+                        "on-primary-fixed": "#3f3f3f",
+                        "on-tertiary-fixed-variant": "#cebcff",
+                        "tertiary-fixed-dim": "#6100eb",
+                        "background": "#f9f9f9",
+                        "secondary": "#5e5f61",
+                        "primary-container": "#e2e2e2",
+                        "on-tertiary-container": "#fcf5ff",
+                        "surface-variant": "#dde4e5",
+                        "surface-container": "#ebeeef",
+                        "on-secondary": "#f9f9fb",
+                        "inverse-surface": "#0c0f0f",
+                        "tertiary-container": "#6d23f9",
+                        "surface-container-low": "#f2f4f4",
+                        "error-container": "#ff8b9a",
+                        "on-primary-container": "#525252",
+                        "on-primary": "#f8f8f8",
+                        "inverse-primary": "#ffffff",
+                        "secondary-fixed": "#e2e2e4",
+                        "tertiary-fixed": "#6d23f9",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#e2e2e4",
+                        "inverse-on-surface": "#9c9d9d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom Scrollbar for modern feel */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f9f9f9; }
+        ::-webkit-scrollbar-thumb { background: #dde4e5; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- TopNavBar - Fixed with tonal separation -->
+<nav class="fixed top-0 w-full z-50 bg-slate-50/80 backdrop-blur-xl shadow-[0px_24px_48px_rgba(45,52,53,0.06)] flex justify-between items-center px-8 h-20 w-full max-w-[1920px] mx-auto">
+<div class="flex items-center gap-12">
+<span class="text-xl font-black tracking-tighter text-zinc-900 font-headline uppercase">VERIFY_LEDGER</span>
+<div class="hidden md:flex gap-8">
+<a class="text-zinc-500 font-headline tracking-tight font-bold uppercase hover:text-purple-600 transition-colors text-sm" href="#">Platform</a>
+<a class="text-zinc-500 font-headline tracking-tight font-bold uppercase hover:text-purple-600 transition-colors text-sm" href="#">Ledger</a>
+<a class="text-zinc-500 font-headline tracking-tight font-bold uppercase hover:text-purple-600 transition-colors text-sm" href="#">Ecosystem</a>
+<a class="text-zinc-500 font-headline tracking-tight font-bold uppercase hover:text-purple-600 transition-colors text-sm" href="#">Docs</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-zinc-500 font-headline tracking-tight font-bold uppercase hover:text-purple-600 transition-colors text-sm">Log In</button>
+<button class="bg-on-surface text-surface px-8 py-3 font-headline tracking-tight font-bold uppercase text-sm scale-95 duration-200 ease-in-out hover:bg-tertiary">Verify</button>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<main class="pt-32 pb-24 px-6 min-h-screen max-w-[1440px] mx-auto grid grid-cols-12 gap-8">
+<!-- Sidebar Stepper - Asymmetric Layout -->
+<aside class="col-span-12 md:col-span-3 flex flex-col gap-12">
+<div class="space-y-6">
+<h1 class="font-headline text-4xl font-bold tracking-tight leading-none">Register<br/>Organization</h1>
+<p class="text-on-surface-variant font-medium text-sm max-w-[200px]">Secure your corporate identity on the immutable ledger.</p>
+</div>
+<!-- Stepper Component -->
+<div class="flex flex-col gap-8 relative">
+<!-- Vertical Line -->
+<div class="absolute left-4 top-2 bottom-2 w-[1px] bg-surface-container-highest"></div>
+<!-- Step 1: Active -->
+<div class="flex items-center gap-6 group relative">
+<div class="w-8 h-8 flex items-center justify-center bg-tertiary text-surface z-10 font-bold text-xs ring-4 ring-surface">01</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase tracking-widest text-tertiary">Current</span>
+<span class="font-headline font-bold text-lg">Organization Details</span>
+</div>
+</div>
+<!-- Step 2: Inactive -->
+<div class="flex items-center gap-6 group relative">
+<div class="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface-variant z-10 font-bold text-xs ring-4 ring-surface">02</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Pending</span>
+<span class="font-headline font-bold text-lg text-on-surface-variant">Identity Verification</span>
+</div>
+</div>
+<!-- Step 3: Inactive -->
+<div class="flex items-center gap-6 group relative">
+<div class="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface-variant z-10 font-bold text-xs ring-4 ring-surface">03</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Pending</span>
+<span class="font-headline font-bold text-lg text-on-surface-variant">Review &amp; Hash</span>
+</div>
+</div>
+</div>
+<!-- Verification Status Indicator -->
+<div class="mt-auto p-6 bg-surface-container-low border-l-4 border-tertiary">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="text-[10px] uppercase font-bold tracking-[0.2em] text-on-surface">System Status</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">Nodes operating at 99.9% uptime. All registrations are cryptographically signed.</p>
+</div>
+</aside>
+<!-- Form Content Area -->
+<div class="col-span-12 md:col-span-9">
+<div class="bg-surface-container-lowest shadow-[0px_24px_48px_rgba(45,52,53,0.06)] p-12 relative overflow-hidden">
+<!-- Section 1: Details -->
+<section class="space-y-12">
+<div class="border-b-0">
+<h2 class="font-headline text-3xl font-black uppercase tracking-tight mb-2">01. Legal Entity Metadata</h2>
+<p class="text-on-surface-variant text-sm">Provide official registration details as listed in your jurisdiction.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+<!-- Input Field Group -->
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Organization Name</label>
+<input class="w-full bg-surface-container-low border-none p-4 text-on-surface focus:ring-0 focus:border-b-2 focus:border-tertiary transition-all outline-none" placeholder="e.g. Acme Corporation" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Entity Type</label>
+<select class="w-full bg-surface-container-low border-none p-4 text-on-surface focus:ring-0 focus:border-b-2 focus:border-tertiary transition-all outline-none">
+<option>Private Limited</option>
+<option>Public Corporation</option>
+<option>Non-Profit Foundation</option>
+<option>Government Agency</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Registration Number (LEI/CRN)</label>
+<input class="w-full bg-surface-container-low border-none p-4 text-on-surface focus:ring-0 focus:border-b-2 focus:border-tertiary transition-all outline-none font-mono" placeholder="XXXXXXXXXXXXXX" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Country of Incorporation</label>
+<input class="w-full bg-surface-container-low border-none p-4 text-on-surface focus:ring-0 focus:border-b-2 focus:border-tertiary transition-all outline-none" placeholder="Select Country" type="text"/>
+</div>
+</div>
+</section>
+<!-- Section 2: Identity Verification -->
+<section class="mt-20 space-y-12">
+<div>
+<h2 class="font-headline text-3xl font-black uppercase tracking-tight mb-2">02. Documentary Proof</h2>
+<p class="text-on-surface-variant text-sm">Upload verifiable PDF documents (Certificate of Incorporation, Articles of Association).</p>
+</div>
+<!-- Drag & Drop Zone -->
+<div class="border-2 border-dashed border-surface-container-highest bg-surface p-16 flex flex-col items-center justify-center text-center group hover:border-tertiary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-5xl text-surface-container-highest group-hover:text-tertiary mb-6 transition-colors" data-weight="fill">upload_file</span>
+<div class="space-y-2">
+<p class="font-headline font-bold text-xl uppercase tracking-tighter">Drag documents here</p>
+<p class="text-on-surface-variant text-xs font-medium">Supported formats: PDF, P7S, XML (Max 25MB)</p>
+</div>
+<button class="mt-8 bg-surface-container-highest text-on-surface px-8 py-3 font-headline font-bold text-xs uppercase tracking-widest hover:bg-on-surface hover:text-surface transition-all">Browse System Files</button>
+</div>
+<!-- Uploaded File Preview (Pseudo-list) -->
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-surface-container-low">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-tertiary">verified_user</span>
+<div class="flex flex-col">
+<span class="text-sm font-bold">incorporation_cert_v1.pdf</span>
+<span class="text-[10px] uppercase text-on-surface-variant">4.2 MB • Ready for Hash</span>
+</div>
+</div>
+<button class="text-error font-bold text-[10px] uppercase tracking-widest hover:underline">Remove</button>
+</div>
+</div>
+</section>
+<!-- Navigation Actions -->
+<div class="mt-20 flex justify-between items-center pt-8">
+<button class="flex items-center gap-2 text-on-surface-variant font-headline font-bold text-sm uppercase tracking-tight hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+                        Save Draft
+                    </button>
+<button class="bg-tertiary text-surface px-12 py-5 font-headline font-black text-lg uppercase tracking-tight shadow-[0px_24px_48px_rgba(97,0,235,0.2)] hover:scale-[1.02] transition-transform">
+                        Proceed to Review
+                    </button>
+</div>
+<!-- Abstract Decorative Monolith Element -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-tertiary opacity-[0.03] rotate-45 pointer-events-none"></div>
+</div>
+<!-- Information Card: Privacy/Security -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="p-8 bg-surface-container-low">
+<h4 class="font-headline font-bold text-sm uppercase tracking-widest mb-4">Cryptographic Integrity</h4>
+<p class="text-xs text-on-surface-variant leading-relaxed">Your data is hashed using SHA-256 before being committed to the ledger. Personal Identifiable Information (PII) is encrypted at rest using AES-256 standards.</p>
+</div>
+<div class="p-8 bg-surface-container-low">
+<h4 class="font-headline font-bold text-sm uppercase tracking-widest mb-4">Verification SLA</h4>
+<p class="text-xs text-on-surface-variant leading-relaxed">Automated identity checks typically resolve in &lt; 120 seconds. Manual node auditor review may take up to 24 hours for complex international entities.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer - Vertical Space Separation -->
+<footer class="bg-slate-50 dark:bg-zinc-950 w-full py-12 border-t-0 flex flex-col md:flex-row justify-between items-center px-12 w-full mt-24">
+<div class="flex flex-col gap-4">
+<span class="font-['Space_Grotesk'] font-bold text-zinc-900 text-xl tracking-tighter uppercase">VERIFY_LEDGER</span>
+<p class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400">© 2024 VERIFY_LEDGER. ARCHITECTURAL DECENTRALIZATION SECURED.</p>
+</div>
+<div class="flex gap-12 mt-8 md:mt-0">
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 hover:text-purple-500 transition-opacity opacity-80 hover:opacity-100" href="#">Whitepaper</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 hover:text-purple-500 transition-opacity opacity-80 hover:opacity-100" href="#">Transparency</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 hover:text-purple-500 transition-opacity opacity-80 hover:opacity-100" href="#">Contact</a>
+<a class="font-['Inter'] text-[10px] uppercase tracking-[0.2em] text-zinc-400 hover:text-purple-500 transition-opacity opacity-80 hover:opacity-100" href="#">Legal</a>
+</div>
+</footer>
+<!-- Background Decoration: Verification Monolith Glow -->
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+</body></html>
