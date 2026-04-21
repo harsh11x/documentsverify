@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("admin@docverify.local");
   const [password, setPassword] = useState("Admin@12345");
   const [loading, setLoading] = useState(false);
@@ -34,9 +36,11 @@ export default function LoginPage() {
       if (data?.accessToken) {
         localStorage.setItem("docverify_access_token", data.accessToken);
         localStorage.setItem("docverify_role", data.role || "");
+        localStorage.setItem("docverify_org_id", data.orgId || "");
       }
 
       setMessage(`Logged in successfully as ${data?.role || "user"}.`);
+      setTimeout(() => router.push("/dashboard"), 500);
     } catch {
       setError("Could not reach backend API.");
     } finally {

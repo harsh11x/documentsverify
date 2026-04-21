@@ -52,6 +52,8 @@ export interface Store {
   createOrgAdmin(orgId: string, email: string, password: string): Promise<UserRecord>;
   createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">): Promise<CertRecord>;
   markCertificateChainIssued(certUuid: string, txHash: string): Promise<void>;
+  listCertificatesByOrg(orgId: string): Promise<CertRecord[]>;
+  listAllCertificates(): Promise<CertRecord[]>;
   findCertificateByUuid(certUuid: string): Promise<CertRecord | null>;
   findCertificateByHash(orgId: string, certHash: string): Promise<CertRecord | null>;
   revokeCertificate(certUuid: string, reason: string): Promise<CertRecord | null>;
@@ -135,6 +137,14 @@ class MemoryStore implements Store {
     cert.txHash = txHash;
     cert.status = "verified";
     this.certs.set(certUuid, cert);
+  }
+
+  async listCertificatesByOrg(orgId: string) {
+    return [...this.certs.values()].filter((c) => c.orgId === orgId);
+  }
+
+  async listAllCertificates() {
+    return [...this.certs.values()];
   }
 
   async findCertificateByUuid(certUuid: string) {
@@ -310,6 +320,42 @@ class PostgresStore implements Store {
 
   async markCertificateChainIssued(certUuid: string, txHash: string) {
     await this.pool.query("UPDATE certificates SET tx_hash=$1,status='verified' WHERE cert_uuid=$2", [txHash, certUuid]);
+  }
+
+  async listCertificatesByOrg(orgId: string) {
+    const result = await this.pool.query("SELECT * FROM certificates WHERE org_id=$1 ORDER BY issue_date DESC", [orgId]);
+    return result.rows.map((c) => ({
+      certUuid: c.cert_uuid,
+      orgId: c.org_id,
+      certType: c.cert_type,
+      certHash: c.cert_hash,
+      issueDate: c.issue_date,
+      txHash: c.tx_hash,
+      status: c.status,
+      holderNameEncrypted: c.holder_name_encrypted,
+      holderDobEncrypted: c.holder_dob_encrypted,
+      identifierMasked: c.identifier_masked,
+      revokedAt: c.revoked_at,
+      revokeReason: c.revoke_reason
+    })) as CertRecord[];
+  }
+
+  async listAllCertificates() {
+    const result = await this.pool.query("SELECT * FROM certificates ORDER BY issue_date DESC");
+    return result.rows.map((c) => ({
+      certUuid: c.cert_uuid,
+      orgId: c.org_id,
+      certType: c.cert_type,
+      certHash: c.cert_hash,
+      issueDate: c.issue_date,
+      txHash: c.tx_hash,
+      status: c.status,
+      holderNameEncrypted: c.holder_name_encrypted,
+      holderDobEncrypted: c.holder_dob_encrypted,
+      identifierMasked: c.identifier_masked,
+      revokedAt: c.revoked_at,
+      revokeReason: c.revoke_reason
+    })) as CertRecord[];
   }
 
   async findCertificateByUuid(certUuid: string) {

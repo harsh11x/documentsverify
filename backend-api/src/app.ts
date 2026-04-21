@@ -32,6 +32,7 @@ const orgRegisterSchema = z.object({
   sector: z.string().min(2),
   domain: z.string().min(2),
   adminEmail: z.string().email(),
+  adminPassword: z.string().min(8),
   adminPhone: z
     .string()
     .trim()
@@ -168,6 +169,7 @@ export function createApp() {
       sector: parsed.data.sector,
       domain: parsed.data.domain
     });
+    await store.createOrgAdmin(orgId, parsed.data.adminEmail, parsed.data.adminPassword);
     return res.status(201).json({
       ...org,
       countryName: parsed.data.countryName,
@@ -175,6 +177,18 @@ export function createApp() {
       adminEmail: parsed.data.adminEmail,
       adminPhone: parsed.data.adminPhone
     });
+  });
+
+  app.get("/api/certificates/mine", requireRole(["org_admin"]), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const items = await store.listCertificatesByOrg(user.orgId);
+    return res.json({ items });
+  });
+
+  app.get("/api/certificates", requireRole(["super_admin"]), async (_req, res) => {
+    const items = await store.listAllCertificates();
+    return res.json({ items });
   });
 
   app.get("/api/super-admin/orgs/pending", requireRole(["super_admin"]), async (_req, res) => {

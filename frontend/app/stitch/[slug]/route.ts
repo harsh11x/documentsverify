@@ -334,6 +334,15 @@ function injectNavigationBindings(html: string, slug: string): string {
       adminEmailInput.style.background = "#ffffff";
       adminEmailInput.style.fontSize = "13px";
 
+      var adminPasswordInput = document.createElement("input");
+      adminPasswordInput.type = "password";
+      adminPasswordInput.placeholder = "Admin password (min 8 chars)";
+      adminPasswordInput.style.minWidth = "260px";
+      adminPasswordInput.style.padding = "10px 12px";
+      adminPasswordInput.style.border = "1px solid #d1d5db";
+      adminPasswordInput.style.background = "#ffffff";
+      adminPasswordInput.style.fontSize = "13px";
+
       var adminPhoneInput = document.createElement("input");
       adminPhoneInput.type = "tel";
       adminPhoneInput.placeholder = "Mobile number (required)";
@@ -350,6 +359,7 @@ function injectNavigationBindings(html: string, slug: string): string {
       feedback.style.color = "#374151";
 
       helperWrap.appendChild(adminEmailInput);
+      helperWrap.appendChild(adminPasswordInput);
       helperWrap.appendChild(adminPhoneInput);
       helperWrap.appendChild(feedback);
       actionContainer.insertBefore(helperWrap, proceedButton);
@@ -363,10 +373,16 @@ function injectNavigationBindings(html: string, slug: string): string {
         var state = stateInput.value ? String(stateInput.value).trim() : "";
         var city = cityInput.value ? String(cityInput.value).trim() : "";
         var adminEmail = adminEmailInput.value ? String(adminEmailInput.value).trim() : "";
+        var adminPassword = adminPasswordInput.value ? String(adminPasswordInput.value).trim() : "";
         var adminPhone = adminPhoneInput.value ? String(adminPhoneInput.value).trim() : "";
 
-        if (!orgName || !entityType || !registrationNumber || !country || !state || !city || !adminEmail || !adminPhone) {
+        if (!orgName || !entityType || !registrationNumber || !country || !state || !city || !adminEmail || !adminPassword || !adminPhone) {
           feedback.textContent = "All details are required: country, state, city, org details, email and mobile number.";
+          feedback.style.color = "#b91c1c";
+          return;
+        }
+        if (adminPassword.length < 8) {
+          feedback.textContent = "Please enter an admin password of at least 8 characters.";
           feedback.style.color = "#b91c1c";
           return;
         }
@@ -386,6 +402,7 @@ function injectNavigationBindings(html: string, slug: string): string {
           sector: (entityType || "General") + " | " + (selectedStateName || state) + ", " + (selectedCountryName || country),
           domain: registrationNumber,
           adminEmail: adminEmail,
+          adminPassword: adminPassword,
           adminPhone: adminPhone
         };
 

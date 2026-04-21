@@ -22,6 +22,7 @@ export default function SignupPage() {
     sector: "",
     domain: "",
     adminEmail: "",
+    adminPassword: "",
     adminPhone: ""
   });
   const [loading, setLoading] = useState(false);
@@ -122,7 +123,7 @@ export default function SignupPage() {
         setError(data?.error || "Organization signup failed");
         return;
       }
-      setMessage(`Application submitted. Org ID: ${data?.orgId || "N/A"}`);
+      setMessage(`Application submitted. Org ID: ${data?.orgId || "N/A"}. You can now login with your email and password.`);
     } catch {
       setError("Could not reach backend API.");
     } finally {
@@ -315,6 +316,19 @@ export default function SignupPage() {
               value={form.adminEmail}
               onChange={(e) => updateField("adminEmail", e.target.value)}
               required
+              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: "span 2" }}>
+            Admin Password
+            <input
+              type="password"
+              value={form.adminPassword}
+              onChange={(e) => updateField("adminPassword", e.target.value)}
+              required
+              minLength={8}
+              placeholder="Minimum 8 characters"
               style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
             />
           </label>
