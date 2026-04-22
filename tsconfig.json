@@ -25,12 +25,18 @@
   "include": [
     "next-env.d.ts",
     ".next/types/**/*.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
     "**/*.ts",
     "**/*.tsx",
     ".next-dev/types/**/*.ts",
     ".next-build/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "backend/**",
+    "admin-panel/**",
+    "workers/**",
+    "blockchain/**"
   ]
 }
