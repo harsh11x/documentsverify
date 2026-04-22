@@ -1,4 +1,4 @@
-"use strict";(()=>{var e={};e.id=665,e.ids=[665],e.modules={399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},297:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>m,patchFetch:()=>b,requestAsyncStorage:()=>f,routeModule:()=>y,serverHooks:()=>v,staticGenerationAsyncStorage:()=>g});var a={};n.r(a),n.d(a,{GET:()=>s});var r=n(3277),i=n(5265),o=n(5356);let l=require("node:fs/promises"),c=require("node:path");var p=n.n(c),u=n(7076);let d={"verify-truth":"verify-truth-monolithic-hero.html","certificate-verification":"certificate-verification.html","register-organization":"register-organization.html","digital-certificate-view":"digital-certificate-view.html"};async function s(e,{params:t}){let n=d[t.slug];if(!n)return new u.NextResponse("Not found",{status:404});let a=p().resolve(process.cwd(),"..","stitch-export","code",n);try{let e=await (0,l.readFile)(a,"utf8"),n=function(e,t){let n=process.env.NEXT_PUBLIC_API_URL||"http://localhost:4000",a=`
+"use strict";(()=>{var e={};e.id=665,e.ids=[665],e.modules={399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},297:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>m,patchFetch:()=>b,requestAsyncStorage:()=>f,routeModule:()=>y,serverHooks:()=>v,staticGenerationAsyncStorage:()=>g});var a={};n.r(a),n.d(a,{GET:()=>u});var r=n(3277),i=n(5265),o=n(5356);let l=require("node:fs/promises"),c=require("node:path");var d=n.n(c),p=n(7076);let s={"verify-truth":"verify-truth-monolithic-hero.html","certificate-verification":"certificate-verification.html","register-organization":"register-organization.html","digital-certificate-view":"digital-certificate-view.html"};async function u(e,{params:t}){let n=s[t.slug];if(!n)return new p.NextResponse("Not found",{status:404});let a=d().resolve(process.cwd(),"..","stitch-export","code",n);try{let e=await (0,l.readFile)(a,"utf8"),n=function(e,t){let n=process.env.NEXT_PUBLIC_API_URL||"http://localhost:4000",a=`
 <script>
   (function () {
     var pageSlug = ${JSON.stringify(t)};
@@ -320,6 +320,15 @@
       adminEmailInput.style.background = "#ffffff";
       adminEmailInput.style.fontSize = "13px";
 
+      var adminPasswordInput = document.createElement("input");
+      adminPasswordInput.type = "password";
+      adminPasswordInput.placeholder = "Admin password (min 8 chars)";
+      adminPasswordInput.style.minWidth = "260px";
+      adminPasswordInput.style.padding = "10px 12px";
+      adminPasswordInput.style.border = "1px solid #d1d5db";
+      adminPasswordInput.style.background = "#ffffff";
+      adminPasswordInput.style.fontSize = "13px";
+
       var adminPhoneInput = document.createElement("input");
       adminPhoneInput.type = "tel";
       adminPhoneInput.placeholder = "Mobile number (required)";
@@ -336,6 +345,7 @@
       feedback.style.color = "#374151";
 
       helperWrap.appendChild(adminEmailInput);
+      helperWrap.appendChild(adminPasswordInput);
       helperWrap.appendChild(adminPhoneInput);
       helperWrap.appendChild(feedback);
       actionContainer.insertBefore(helperWrap, proceedButton);
@@ -349,10 +359,16 @@
         var state = stateInput.value ? String(stateInput.value).trim() : "";
         var city = cityInput.value ? String(cityInput.value).trim() : "";
         var adminEmail = adminEmailInput.value ? String(adminEmailInput.value).trim() : "";
+        var adminPassword = adminPasswordInput.value ? String(adminPasswordInput.value).trim() : "";
         var adminPhone = adminPhoneInput.value ? String(adminPhoneInput.value).trim() : "";
 
-        if (!orgName || !entityType || !registrationNumber || !country || !state || !city || !adminEmail || !adminPhone) {
+        if (!orgName || !entityType || !registrationNumber || !country || !state || !city || !adminEmail || !adminPassword || !adminPhone) {
           feedback.textContent = "All details are required: country, state, city, org details, email and mobile number.";
+          feedback.style.color = "#b91c1c";
+          return;
+        }
+        if (adminPassword.length < 8) {
+          feedback.textContent = "Please enter an admin password of at least 8 characters.";
           feedback.style.color = "#b91c1c";
           return;
         }
@@ -372,6 +388,7 @@
           sector: (entityType || "General") + " | " + (selectedStateName || state) + ", " + (selectedCountryName || country),
           domain: registrationNumber,
           adminEmail: adminEmail,
+          adminPassword: adminPassword,
           adminPhone: adminPhone
         };
 
@@ -768,4 +785,4 @@
     bindRegisterOrganizationInteractions();
     bindVerifyPageInteractions();
   })();
-</script>`;return e.includes("</body>")?e.replace("</body>",`${a}</body>`):`${e}${a}`}(e,t.slug);return new u.NextResponse(n,{headers:{"content-type":"text/html; charset=utf-8"}})}catch{return new u.NextResponse("Stitch export file missing",{status:500})}}let y=new r.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/stitch/[slug]/route",pathname:"/stitch/[slug]",filename:"route",bundlePath:"app/stitch/[slug]/route"},resolvedPagePath:"/Users/harshdev/Documents/Projects/docverifyblock/frontend/app/stitch/[slug]/route.ts",nextConfigOutput:"",userland:a}),{requestAsyncStorage:f,staticGenerationAsyncStorage:g,serverHooks:v}=y,m="/stitch/[slug]/route";function b(){return(0,o.patchFetch)({serverHooks:v,staticGenerationAsyncStorage:g})}}};var t=require("../../../webpack-runtime.js");t.C(e);var n=e=>t(t.s=e),a=t.X(0,[942,786],()=>n(297));module.exports=a})();
+</script>`;return e.includes("</body>")?e.replace("</body>",`${a}</body>`):`${e}${a}`}(e,t.slug);return new p.NextResponse(n,{headers:{"content-type":"text/html; charset=utf-8"}})}catch{return new p.NextResponse("Stitch export file missing",{status:500})}}let y=new r.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/stitch/[slug]/route",pathname:"/stitch/[slug]",filename:"route",bundlePath:"app/stitch/[slug]/route"},resolvedPagePath:"/Users/harshdev/Documents/Projects/docverifyblock/frontend/app/stitch/[slug]/route.ts",nextConfigOutput:"",userland:a}),{requestAsyncStorage:f,staticGenerationAsyncStorage:g,serverHooks:v}=y,m="/stitch/[slug]/route";function b(){return(0,o.patchFetch)({serverHooks:v,staticGenerationAsyncStorage:g})}}};var t=require("../../../webpack-runtime.js");t.C(e);var n=e=>t(t.s=e),a=t.X(0,[942,786],()=>n(297));module.exports=a})();

@@ -25,18 +25,19 @@ const loginSchema = z.object({
 
 const orgRegisterSchema = z.object({
   name: z.string().min(2),
-  countryName: z.string().min(2),
-  stateName: z.string().min(2),
+  countryName: z.string().min(2).optional(),
+  stateName: z.string().min(2).optional(),
   city: z.string().min(2),
   orgType: z.enum(["GOV", "PVT"]),
   sector: z.string().min(2),
   domain: z.string().min(2),
   adminEmail: z.string().email(),
-  adminPassword: z.string().min(8),
+  adminPassword: z.string().min(8).optional(),
   adminPhone: z
     .string()
     .trim()
     .regex(/^\+?[0-9]{8,15}$/, "adminPhone must be a valid mobile number")
+    .optional()
 });
 
 const orgDecisionSchema = z.object({
@@ -64,6 +65,15 @@ const publicLookupSchema = z.object({
   orgId: z.string().min(1),
   certType: z.string().min(1),
   identifierValue: z.string().min(1)
+});
+
+const chainTxMetaSchema = z.object({
+  blockchainProvider: z.enum(["evm", "fabric"]).optional(),
+  gasUsed: z.string().optional(),
+  gasPriceGwei: z.string().optional(),
+  totalFeeEth: z.string().optional(),
+  blockNumber: z.number().int().nonnegative().optional(),
+  confirmations: z.number().int().nonnegative().optional()
 });
 
 function getBearerToken(authHeader?: string): string | null {
@@ -109,6 +119,7 @@ export function createApp() {
   async function enqueueChainJob(name: string, payload: Record<string, unknown>) {
     if (process.env.DISABLE_QUEUES === "true") return;
     try {
+      console.log(`[backend-api] enqueue chain job=${name}`, payload);
       await Promise.race([
         chainWriteQueue.add(name, payload),
         new Promise((_, reject) => setTimeout(() => reject(new Error("queue_timeout")), 1500))
@@ -169,13 +180,14 @@ export function createApp() {
       sector: parsed.data.sector,
       domain: parsed.data.domain
     });
-    await store.createOrgAdmin(orgId, parsed.data.adminEmail, parsed.data.adminPassword);
+    const adminPassword = parsed.data.adminPassword ?? `Temp#${crypto.randomUUID().slice(0, 8)}`;
+    await store.createOrgAdmin(orgId, parsed.data.adminEmail, adminPassword);
     return res.status(201).json({
       ...org,
-      countryName: parsed.data.countryName,
-      stateName: parsed.data.stateName,
+      countryName: parsed.data.countryName ?? null,
+      stateName: parsed.data.stateName ?? null,
       adminEmail: parsed.data.adminEmail,
-      adminPhone: parsed.data.adminPhone
+      adminPhone: parsed.data.adminPhone ?? null
     });
   });
 
@@ -295,9 +307,18 @@ export function createApp() {
       return res.status(401).json({ error: "unauthorized_worker" });
     }
     const payload = z
-      .object({ orgId: z.string().min(1), txHash: z.string().min(10) })
+      .object({ orgId: z.string().min(1), txHash: z.string().min(10), txMeta: chainTxMetaSchema.optional() })
       .safeParse(req.body);
     if (!payload.success) return res.status(400).json({ error: payload.error.flatten() });
+    console.log(
+      `[backend-api] chain callback org-registered orgId=${payload.data.orgId} txHash=${payload.data.txHash} provider=${
+        payload.data.txMeta?.blockchainProvider ?? "n/a"
+      } gasUsed=${payload.data.txMeta?.gasUsed ?? "n/a"} gasPriceGwei=${
+        payload.data.txMeta?.gasPriceGwei ?? "n/a"
+      } totalFeeEth=${payload.data.txMeta?.totalFeeEth ?? "n/a"} block=${
+        payload.data.txMeta?.blockNumber ?? "n/a"
+      } confirmations=${payload.data.txMeta?.confirmations ?? "n/a"}`
+    );
     await store.markOrgChainRegistered(payload.data.orgId, payload.data.txHash);
     return res.json({ ok: true });
   });
@@ -307,9 +328,18 @@ export function createApp() {
       return res.status(401).json({ error: "unauthorized_worker" });
     }
     const payload = z
-      .object({ certUuid: z.string().uuid(), txHash: z.string().min(10) })
+      .object({ certUuid: z.string().uuid(), txHash: z.string().min(10), txMeta: chainTxMetaSchema.optional() })
       .safeParse(req.body);
     if (!payload.success) return res.status(400).json({ error: payload.error.flatten() });
+    console.log(
+      `[backend-api] chain callback certificate-issued certUuid=${payload.data.certUuid} txHash=${payload.data.txHash} provider=${
+        payload.data.txMeta?.blockchainProvider ?? "n/a"
+      } gasUsed=${payload.data.txMeta?.gasUsed ?? "n/a"} gasPriceGwei=${
+        payload.data.txMeta?.gasPriceGwei ?? "n/a"
+      } totalFeeEth=${payload.data.txMeta?.totalFeeEth ?? "n/a"} block=${
+        payload.data.txMeta?.blockNumber ?? "n/a"
+      } confirmations=${payload.data.txMeta?.confirmations ?? "n/a"}`
+    );
     await store.markCertificateChainIssued(payload.data.certUuid, payload.data.txHash);
     return res.json({ ok: true });
   });
