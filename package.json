@@ -2,28 +2,22 @@
   "name": "docverifyblock",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "frontend",
-    "admin-panel",
-    "backend-api",
-    "workers",
-    "blockchain"
-  ],
   "scripts": {
-    "dev": "npm run dev -w frontend",
-    "dev:backend": "npm run dev -w backend-api",
-    "dev:all": "concurrently \"npm run dev -w backend-api\" \"npm run dev -w frontend\" \"npm run dev -w admin-panel\"",
-    "dev:all:with-workers": "concurrently \"npm run dev -w backend-api\" \"npm run dev -w frontend\" \"npm run dev -w admin-panel\" \"npm run dev -w workers\"",
-    "infra:up": "(docker compose -f infra/docker-compose.yml up -d || docker-compose -f infra/docker-compose.yml up -d)",
-    "run:beast": "npm run infra:up && npm run dev:all:with-workers",
-    "lint": "npm run lint -ws --if-present",
-    "test": "npm run test -ws --if-present",
-    "build": "npm run build -ws --if-present",
-    "test:everything": "npm run test -w backend-api && npm run test -w blockchain && npm run build -w workers && npm run build -w backend-api && npm run build -w frontend && npm run build -w admin-panel",
-    "format": "prettier --write ."
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "country-state-city": "^3.2.1",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "prettier": "^3.3.3"
+    "@types/node": "^22.19.17",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
   }
 }

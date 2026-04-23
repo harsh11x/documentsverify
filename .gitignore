@@ -7,6 +7,12 @@ coverage
 .DS_Store
 .turbo
 .next
+.next-build
+.next-dev
+graphify-out
+frontend/.next
+frontend/.next-build
+frontend/.next-dev
 artifacts
 cache
 typechain-types
