@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/certificate-verification/page": "app/certificate-verification/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/connect/page": "app/connect/page.js",
+  "/api/locations/route": "app/api/locations/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/governance/page": "app/governance/page.js",
+  "/digital-certificate-view/page": "app/digital-certificate-view/page.js",
+  "/legal/page": "app/legal/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/register-organization/page": "app/register-organization/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/transparency/page": "app/transparency/page.js",
+  "/stitch/[slug]/route": "app/stitch/[slug]/route.js",
+  "/verify-truth/page": "app/verify-truth/page.js",
+  "/verify/[uuid]/page": "app/verify/[uuid]/page.js",
+  "/whitepaper/page": "app/whitepaper/page.js"
+}

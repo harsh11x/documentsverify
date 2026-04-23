@@ -816,7 +816,7 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const filePath = path.resolve(process.cwd(), "..", "stitch-export", "code", fileName);
+  const filePath = path.resolve(process.cwd(), "stitch-export", "code", fileName);
 
   try {
     const html = await readFile(filePath, "utf8");
