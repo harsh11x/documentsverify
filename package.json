@@ -9,14 +9,13 @@
     "blockchain"
   ],
   "scripts": {
-    "dev": "AES_256_KEY=${AES_256_KEY:-12345678901234567890123456789012} DISABLE_QUEUES=true npm run dev:all",
-    "dev:web": "next dev -p 3000",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
     "dev:backend": "npm run dev -w backend",
-    "dev:all": "concurrently \"npm run dev -w backend\" \"npm run dev:web\" \"npm run dev -w admin-panel\"",
-    "dev:all:with-workers": "concurrently \"npm run dev -w backend\" \"npm run dev:web\" \"npm run dev -w admin-panel\" \"npm run dev -w workers\"",
+    "dev:all": "concurrently \"npm run dev -w backend\" \"npm run dev\" \"npm run dev -w admin-panel\"",
+    "dev:all:with-workers": "concurrently \"npm run dev -w backend\" \"npm run dev\" \"npm run dev -w admin-panel\" \"npm run dev -w workers\"",
     "infra:up": "(docker compose -f infra/docker-compose.yml up -d || docker-compose -f infra/docker-compose.yml up -d)",
     "run:beast": "npm run infra:up && npm run dev:all:with-workers",
     "test": "npm run test -w backend && npm run test -w blockchain",
