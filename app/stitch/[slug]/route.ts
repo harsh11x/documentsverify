@@ -775,6 +775,33 @@ function injectNavigationBindings(html: string, slug: string): string {
       });
     }
 
+    function applyResponsiveDesktopScale() {
+      var mobile = window.matchMedia("(max-width: 900px)").matches;
+      var root = document.documentElement;
+      var body = document.body;
+      if (!root || !body) return;
+
+      if (!mobile) {
+        root.style.overflowX = "hidden";
+        body.style.overflowX = "hidden";
+        body.style.margin = body.style.margin || "0";
+        return;
+      }
+
+      var baseWidth = 1366;
+      var viewport = Math.max(window.innerWidth || 0, 320);
+      var scale = Math.min(1, viewport / baseWidth);
+
+      root.style.overflowX = "hidden";
+      body.style.overflowX = "hidden";
+      body.style.margin = "0";
+      body.style.transformOrigin = "top left";
+      body.style.transform = "scale(" + scale.toFixed(4) + ")";
+      body.style.width = (100 / scale).toFixed(4) + "%";
+      body.style.minHeight = (100 / scale).toFixed(4) + "vh";
+      body.style.webkitTextSizeAdjust = "100%";
+    }
+
     bindButtonByLabel("verify now", "/certificate-verification");
     bindButtonByLabel("verify certificate", "/certificate-verification");
     bindButtonByLabel("verify", "/certificate-verification");
@@ -798,6 +825,8 @@ function injectNavigationBindings(html: string, slug: string): string {
     replaceWalletWithAuthActions();
     bindRegisterOrganizationInteractions();
     bindVerifyPageInteractions();
+    applyResponsiveDesktopScale();
+    window.addEventListener("resize", applyResponsiveDesktopScale);
   })();
 </script>`;
 

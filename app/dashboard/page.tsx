@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [verifyResult, setVerifyResult] = useState<string>("");
+  const [isMobile, setIsMobile] = useState(false);
 
   const [issueForm, setIssueForm] = useState({
     certType: "GENERAL",
@@ -46,6 +47,13 @@ export default function DashboardPage() {
     setRole(r);
     setOrgId(o);
   }, [router]);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 900);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   async function loadCertificates() {
     if (!token) return;
@@ -134,7 +142,7 @@ export default function DashboardPage() {
   const title = useMemo(() => (role === "super_admin" ? "Super Admin Dashboard" : "Organization Dashboard"), [role]);
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f3f5fa", padding: "24px", color: "#111827" }}>
+    <main style={{ minHeight: "100vh", background: "#f3f5fa", padding: isMobile ? "12px" : "24px", color: "#111827" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto", display: "grid", gap: "16px" }}>
         <section style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800 }}>{title}</h1>
@@ -145,7 +153,7 @@ export default function DashboardPage() {
 
         <section style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
           <h2 style={{ marginTop: 0 }}>Issue / Upload Certificate</h2>
-          <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(2,minmax(0,1fr))" }}>
+          <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
             <input
               value={issueForm.certType}
               onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))}
@@ -189,7 +197,7 @@ export default function DashboardPage() {
 
         <section style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
           <h2 style={{ marginTop: 0 }}>Verify Certificate by UUID</h2>
-          <form onSubmit={onVerifyByUuid} style={{ display: "flex", gap: "8px" }}>
+          <form onSubmit={onVerifyByUuid} style={{ display: "flex", gap: "8px", flexDirection: isMobile ? "column" : "row" }}>
             <input
               value={verifyUuid}
               onChange={(e) => setVerifyUuid(e.target.value)}
@@ -204,7 +212,7 @@ export default function DashboardPage() {
         </section>
 
         <section style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: isMobile ? "8px" : 0 }}>
             <h2 style={{ marginTop: 0 }}>Stored Certificates</h2>
             <button onClick={() => void loadCertificates()} style={{ padding: "8px 12px" }}>
               Refresh

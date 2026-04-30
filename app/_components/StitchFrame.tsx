@@ -5,7 +5,7 @@ type StitchFrameProps = {
 
 export default function StitchFrame({ slug, title }: StitchFrameProps) {
   return (
-    <main style={{ height: "100vh", width: "100vw" }}>
+    <main style={{ height: "100dvh", minHeight: "100vh", width: "100vw", overflow: "hidden" }}>
       <iframe
         title={title}
         src={`/stitch/${slug}`}

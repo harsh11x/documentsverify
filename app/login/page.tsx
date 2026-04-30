@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 900);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,7 +65,7 @@ export default function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "28px"
+        padding: isMobile ? "16px" : "28px"
       }}
     >
       <section
@@ -70,7 +78,7 @@ export default function LoginPage() {
           borderRadius: "18px",
           overflow: "hidden",
           display: "grid",
-          gridTemplateColumns: "1.1fr 1fr"
+          gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr"
         }}
       >
         <aside
@@ -78,7 +86,7 @@ export default function LoginPage() {
             background:
               "linear-gradient(160deg, rgba(17,24,39,1) 0%, rgba(36,47,66,1) 60%, rgba(109,35,249,0.95) 100%)",
             color: "#f8fafc",
-            padding: "42px 36px",
+            padding: isMobile ? "24px 20px" : "42px 36px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between"
@@ -88,7 +96,7 @@ export default function LoginPage() {
             <p style={{ margin: 0, fontSize: "12px", letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.75 }}>
               VERIFY_LEDGER
             </p>
-            <h2 style={{ margin: "18px 0 12px", fontSize: "34px", lineHeight: 1.05, fontWeight: 800 }}>
+            <h2 style={{ margin: "18px 0 12px", fontSize: isMobile ? "26px" : "34px", lineHeight: 1.05, fontWeight: 800 }}>
               Welcome back.
             </h2>
             <p style={{ margin: 0, color: "rgba(241,245,249,0.85)", lineHeight: 1.5 }}>
@@ -102,8 +110,8 @@ export default function LoginPage() {
           </div>
         </aside>
 
-        <div style={{ padding: "40px 34px" }}>
-          <h1 style={{ margin: "0 0 8px", fontSize: "30px", fontWeight: 800, letterSpacing: "-0.02em" }}>Login</h1>
+          <div style={{ padding: isMobile ? "22px 18px" : "40px 34px" }}>
+            <h1 style={{ margin: "0 0 8px", fontSize: isMobile ? "25px" : "30px", fontWeight: 800, letterSpacing: "-0.02em" }}>Login</h1>
           <p style={{ margin: "0 0 22px", color: "#4b5563" }}>Access your DocVerify workspace.</p>
 
           <form onSubmit={onSubmit} style={{ display: "grid", gap: "12px" }}>

@@ -34,6 +34,14 @@ export default function SignupPage() {
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 1024);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -140,7 +148,7 @@ export default function SignupPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "28px"
+        padding: isMobile ? "14px" : "28px"
       }}
     >
       <section
@@ -153,7 +161,7 @@ export default function SignupPage() {
           borderRadius: "18px",
           overflow: "hidden",
           display: "grid",
-          gridTemplateColumns: "1.05fr 1.3fr"
+          gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1.3fr"
         }}
       >
         <aside
@@ -161,7 +169,7 @@ export default function SignupPage() {
             background:
               "linear-gradient(165deg, rgba(17,24,39,1) 0%, rgba(36,47,66,1) 60%, rgba(109,35,249,0.95) 100%)",
             color: "#f8fafc",
-            padding: "42px 34px",
+            padding: isMobile ? "22px 18px" : "42px 34px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between"
@@ -171,7 +179,7 @@ export default function SignupPage() {
             <p style={{ margin: 0, fontSize: "12px", letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.75 }}>
               VERIFY_LEDGER
             </p>
-            <h2 style={{ margin: "18px 0 12px", fontSize: "34px", lineHeight: 1.05, fontWeight: 800 }}>
+            <h2 style={{ margin: "18px 0 12px", fontSize: isMobile ? "24px" : "34px", lineHeight: 1.05, fontWeight: 800 }}>
               Organization onboarding.
             </h2>
             <p style={{ margin: 0, color: "rgba(241,245,249,0.85)", lineHeight: 1.5 }}>
@@ -185,17 +193,17 @@ export default function SignupPage() {
           </div>
         </aside>
 
-        <div style={{ padding: "40px 34px" }}>
-          <h1 style={{ margin: "0 0 8px", fontSize: "30px", fontWeight: 800, letterSpacing: "-0.02em" }}>
+        <div style={{ padding: isMobile ? "22px 16px" : "40px 34px" }}>
+          <h1 style={{ margin: "0 0 8px", fontSize: isMobile ? "24px" : "30px", fontWeight: 800, letterSpacing: "-0.02em" }}>
             Organization Signup
           </h1>
           <p style={{ margin: "0 0 20px", color: "#4b5563" }}>Submit your organization for onboarding.</p>
 
           <form
             onSubmit={onSubmit}
-            style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+            style={{ display: "grid", gap: "12px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}
           >
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
             Organization Name
             <input
               type="text"
@@ -309,7 +317,7 @@ export default function SignupPage() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
             Admin Email
             <input
               type="email"
@@ -320,7 +328,7 @@ export default function SignupPage() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
             Admin Password
             <input
               type="password"
@@ -333,7 +341,7 @@ export default function SignupPage() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
             Mobile Number
             <input
               type="tel"
@@ -360,7 +368,7 @@ export default function SignupPage() {
               letterSpacing: "0.08em",
               cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.7 : 1,
-              gridColumn: "span 2",
+              gridColumn: isMobile ? "span 1" : "span 2",
               borderRadius: "10px"
             }}
           >
