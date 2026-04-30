@@ -9,13 +9,14 @@
     "blockchain"
   ],
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "npm run run:beast",
+    "dev:web": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
     "dev:backend": "npm run dev -w backend",
-    "dev:all": "concurrently \"npm run dev -w backend\" \"npm run dev\" \"npm run dev -w admin-panel\"",
-    "dev:all:with-workers": "concurrently \"npm run dev -w backend\" \"npm run dev\" \"npm run dev -w admin-panel\" \"npm run dev -w workers\"",
+    "dev:all": "concurrently \"npm run dev -w backend\" \"npm run dev:web\" \"npm run dev -w admin-panel\"",
+    "dev:all:with-workers": "concurrently \"npm run dev -w backend\" \"npm run dev:web\" \"npm run dev -w admin-panel\" \"npm run dev -w workers\"",
     "infra:up": "(docker compose -f infra/docker-compose.yml up -d || docker-compose -f infra/docker-compose.yml up -d)",
     "run:beast": "npm run infra:up && npm run dev:all:with-workers",
     "test": "npm run test -w backend && npm run test -w blockchain",
