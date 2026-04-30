@@ -9,7 +9,7 @@
     "blockchain"
   ],
   "scripts": {
-    "dev": "npm run run:beast",
+    "dev": "npm run dev:all:with-workers",
     "dev:web": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
