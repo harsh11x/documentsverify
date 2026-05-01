@@ -113,6 +113,8 @@ class MemoryStore implements Store {
   }
 
   async createOrgAdmin(orgId: string, email: string, password: string) {
+    const existing = [...this.users.values()].find((u) => u.email === email);
+    if (existing) return existing;
     const passwordHash = await hash(password, 10);
     const user: UserRecord = {
       userId: crypto.randomUUID(),
@@ -280,6 +282,13 @@ class PostgresStore implements Store {
   }
 
   async createOrgAdmin(orgId: string, email: string, password: string) {
+    const existing = await this.pool.query(
+      "SELECT user_id as \"userId\", email, password_hash as \"passwordHash\", role, org_id as \"orgId\" FROM users WHERE email=$1 LIMIT 1",
+      [email]
+    );
+    if (existing.rowCount) {
+      return existing.rows[0] as UserRecord;
+    }
     const user: UserRecord = {
       userId: crypto.randomUUID(),
       email,

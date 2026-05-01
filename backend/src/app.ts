@@ -15,7 +15,10 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().default("dev_access_secret_change_me"),
   CHAIN_WORKER_TOKEN: z.string().default("dev_chain_worker_token"),
   SUPER_ADMIN_EMAIL: z.string().default("admin@docverify.local"),
-  SUPER_ADMIN_PASSWORD: z.string().default("Admin@12345")
+  SUPER_ADMIN_PASSWORD: z.string().default("Admin@12345"),
+  DEMO_ORG_ADMIN_EMAIL: z.string().default("company.demo@docverify.local"),
+  DEMO_ORG_ADMIN_PASSWORD: z.string().default("Company@12345"),
+  DEMO_ORG_ID: z.string().default("demo-org-001")
 });
 
 const loginSchema = z.object({
@@ -85,7 +88,10 @@ export function createApp() {
   const env = envSchema.parse(process.env);
   const allowlist = env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
   const store = createStore(env.DATABASE_URL);
-  void store.initialize().then(() => store.createSuperAdmin(env.SUPER_ADMIN_EMAIL, env.SUPER_ADMIN_PASSWORD));
+  void store.initialize().then(async () => {
+    await store.createSuperAdmin(env.SUPER_ADMIN_EMAIL, env.SUPER_ADMIN_PASSWORD);
+    await store.createOrgAdmin(env.DEMO_ORG_ID, env.DEMO_ORG_ADMIN_EMAIL, env.DEMO_ORG_ADMIN_PASSWORD);
+  });
   const app = express();
 
   app.disable("x-powered-by");
