@@ -121,12 +121,15 @@ async function submitEvmTx(jobName: string, payload: Record<string, unknown>): P
   }
 
   const certRegistry = new ethers.Contract(process.env.CERT_REGISTRY_ADDRESS as string, certRegistryAbi, wallet);
+  const digest = payload.manifestDigest ? String(payload.manifestDigest) : "";
+  const metadataHash =
+    digest.length === 64 && /^[0-9a-f]+$/i.test(digest) ? (`0x${digest}` as `0x${string}`) : ethers.id(String(payload.certUuid));
   const tx = await certRegistry.issueCertificate(
     String(payload.certHash),
     String(payload.orgId),
     "default-branch",
     String(payload.certType),
-    ethers.id(String(payload.certUuid))
+    metadataHash
   );
   const receipt = await tx.wait();
   const gasUsed = toBigIntValue(receipt?.gasUsed);

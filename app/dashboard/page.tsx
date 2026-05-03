@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 type Certificate = {
   certUuid: string;
+  orgId?: string;
   certType: string;
   issueDate: string;
   status: string;
@@ -75,7 +76,8 @@ export default function DashboardPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/certificates/mine`, {
+      const endpoint = role === "super_admin" ? "/api/certificates" : "/api/certificates/mine";
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
@@ -198,8 +200,13 @@ export default function DashboardPage() {
         setVerifyResult("Certificate not found.");
         return;
       }
+      const digestShort =
+        typeof data.manifestDigest === "string" && data.manifestDigest.length >= 16
+          ? `${data.manifestDigest.slice(0, 8)}…${data.manifestDigest.slice(-6)}`
+          : "N/A";
+      const ipfsLine = data.ipfsCid ? ` | IPFS: ${data.ipfsCid}` : "";
       setVerifyResult(
-        `Status: ${data.status} | Org: ${data.orgId} | Type: ${data.certType} | Tx: ${data.txHash || "N/A"}`
+        `Status: ${data.status} | Org: ${data.orgId} | Type: ${data.certType} | Tx: ${data.txHash || "N/A"} | Manifest: ${digestShort}${ipfsLine}`
       );
     } catch {
       setVerifyResult("Verification failed.");
@@ -307,20 +314,30 @@ export default function DashboardPage() {
         </section>
 
         <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1.15fr", gap: "16px" }}>
-          <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Issuance Console</p>
-            <h2 style={{ margin: "0 0 14px", fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Issue Certificate</h2>
-            <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
-              <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <input value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <input type="date" value={issueForm.issueDate} onChange={(e) => setIssueForm((p) => ({ ...p, issueDate: e.target.value }))} required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <button type="submit" style={{ padding: "12px 14px", background: "#2d3435", color: "#fff", border: "none", borderRadius: "0px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
-                Issue Certificate
-              </button>
-            </form>
-          </article>
+          {role !== "super_admin" ? (
+            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
+              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Issuance Console</p>
+              <h2 style={{ margin: "0 0 14px", fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Issue Certificate</h2>
+              <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
+                <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
+                <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
+                <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
+                <input value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
+                <input type="date" value={issueForm.issueDate} onChange={(e) => setIssueForm((p) => ({ ...p, issueDate: e.target.value }))} required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
+                <button type="submit" style={{ padding: "12px 14px", background: "#2d3435", color: "#fff", border: "none", borderRadius: "0px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
+                  Issue Certificate
+                </button>
+              </form>
+            </article>
+          ) : (
+            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
+              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Super Admin</p>
+              <h2 style={{ margin: "0 0 10px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Organization tools</h2>
+              <p style={{ margin: 0, color: "#596061", fontSize: "14px", lineHeight: 1.5 }}>
+                Certificate issuance is limited to organization accounts. Use the ledger below for a global view; approve new organizations from the admin flows as needed.
+              </p>
+            </article>
+          )}
 
           <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
             <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Verification Probe</p>
@@ -343,14 +360,16 @@ export default function DashboardPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: isMobile ? "10px" : 0 }}>
             <div>
               <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Ledger Index</p>
-              <h2 style={{ margin: 0, fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Your Certificate Status</h2>
+              <h2 style={{ margin: 0, fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>
+                {role === "super_admin" ? "All Certificates" : "Your Certificate Status"}
+              </h2>
             </div>
             <button onClick={() => void Promise.all([loadCertificates(), loadReviewWorkflows()])} style={{ padding: "10px 12px", border: "1px solid rgba(117,124,125,0.3)", background: "#f2f4f4", borderRadius: "0px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px" }}>
               Refresh
             </button>
           </div>
           {loading ? <p style={{ color: "#596061" }}>Loading certificates...</p> : null}
-          {role === "org_admin" ? (
+          {role === "org_admin" || role === "super_admin" ? (
             <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button onClick={() => setSubmittedFilter("all")} style={{ padding: "7px 10px", border: "1px solid rgba(117,124,125,0.3)", background: submittedFilter === "all" ? "#e5e7eb" : "#fff", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700 }}>All</button>
               <button onClick={() => setSubmittedFilter("pending_approval")} style={{ padding: "7px 10px", border: "1px solid rgba(55,48,163,0.35)", background: submittedFilter === "pending_approval" ? "#e0e7ff" : "#fff", color: "#3730a3", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700 }}>Pending</button>
@@ -365,6 +384,9 @@ export default function DashboardPage() {
                 <thead>
                   <tr style={{ background: "#f2f4f4" }}>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>UUID</th>
+                    {role === "super_admin" ? (
+                      <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Org</th>
+                    ) : null}
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Type</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Issue Date</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Status</th>
@@ -380,6 +402,9 @@ export default function DashboardPage() {
                         <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px" }}>
                           {item.certUuid.slice(0, 8)}...{item.certUuid.slice(-6)}
                         </td>
+                        {role === "super_admin" ? (
+                          <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>{item.orgId ?? "—"}</td>
+                        ) : null}
                         <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>{item.certType}</td>
                         <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>{item.issueDate}</td>
                         <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>

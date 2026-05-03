@@ -19,6 +19,33 @@ describe("backend-api", () => {
     expect(res.body.status).toBe("ok");
   });
 
+  it("does not expose encrypted PII fields in certificate list APIs", async () => {
+    const app = createApp();
+    await request(app)
+      .post("/api/certificates/issue")
+      .send({
+        orgId: "org-1",
+        branchId: "branch-1",
+        certType: "Degree",
+        identifierType: "Roll Number",
+        identifierValue: "RN-999",
+        holderName: "Secret Holder",
+        holderDob: "2000-01-01",
+        issueDate: "2026-04-13"
+      })
+      .set("Authorization", `Bearer ${token("org_admin", "org-1")}`);
+
+    const listRes = await request(app)
+      .get("/api/certificates/mine")
+      .set("Authorization", `Bearer ${token("org_admin", "org-1")}`);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.items.length).toBeGreaterThan(0);
+    const row = listRes.body.items[0];
+    expect(row.holderNameEncrypted).toBeUndefined();
+    expect(row.holderDobEncrypted).toBeUndefined();
+    expect(row.voteSummary).toEqual({ approvals: 0, denials: 0, total: 0 });
+  });
+
   it("keeps new certificate pending approval until majority vote", async () => {
     const app = createApp();
     const issueRes = await request(app).post("/api/certificates/issue").send({
@@ -36,6 +63,8 @@ describe("backend-api", () => {
     expect(issueRes.body.certUuid).toBeTruthy();
     expect(issueRes.body.certHash).toBeTruthy();
     expect(issueRes.body.status).toBe("pending_approval");
+    expect(issueRes.body.manifestDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(issueRes.body).toHaveProperty("ipfsCid");
 
     const verifyRes = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
     expect(verifyRes.status).toBe(200);
@@ -43,6 +72,7 @@ describe("backend-api", () => {
     expect(verifyRes.body.pii.holderDob).toBe("REDACTED");
     expect(verifyRes.body.pii.identifier).toContain("****");
     expect(verifyRes.body.status).toBe("pending_approval");
+    expect(verifyRes.body.manifestDigest).toBe(issueRes.body.manifestDigest);
   });
 
   it("verifies by org and identifier, then revokes", async () => {

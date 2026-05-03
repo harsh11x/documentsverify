@@ -6,8 +6,9 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { z } from "zod";
 import { chainWriteQueue } from "./queues.js";
-import { encryptPII, stableCertHash } from "./security.js";
-import { createStore, Role } from "./store.js";
+import { uploadJsonToIpfs } from "./ipfs.js";
+import { canonicalJsonStringify, encryptPII, sha256HexUtf8, stableCertHash } from "./security.js";
+import { createStore, type CertRecord, type Store, Role } from "./store.js";
 
 const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:3000,http://localhost:3001"),
@@ -18,7 +19,8 @@ const envSchema = z.object({
   SUPER_ADMIN_PASSWORD: z.string().default("Admin@12345"),
   DEMO_ORG_ADMIN_EMAIL: z.string().default("company.demo@docverify.local"),
   DEMO_ORG_ADMIN_PASSWORD: z.string().default("Company@12345"),
-  DEMO_ORG_ID: z.string().default("demo-org-001")
+  DEMO_ORG_ID: z.string().default("demo-org-001"),
+  IPFS_GATEWAY_PREFIX: z.string().default("https://ipfs.io/ipfs")
 });
 
 const loginSchema = z.object({
@@ -87,6 +89,40 @@ const chainTxMetaSchema = z.object({
 function getBearerToken(authHeader?: string): string | null {
   if (!authHeader?.startsWith("Bearer ")) return null;
   return authHeader.slice(7);
+}
+
+function ipfsGatewayUrl(prefix: string, cid: string | null): string | null {
+  if (!cid) return null;
+  const base = prefix.replace(/\/$/, "");
+  return `${base}/${cid}`;
+}
+
+/** Never expose ciphertext fields (holderNameEncrypted, holderDobEncrypted) in list APIs. */
+async function toCertificateListItems(store: Store, certificates: CertRecord[]) {
+  return Promise.all(
+    certificates.map(async (cert) => {
+      const votes = await store.listCertificateVotes(cert.certUuid);
+      return {
+        certUuid: cert.certUuid,
+        orgId: cert.orgId,
+        certType: cert.certType,
+        certHash: cert.certHash,
+        issueDate: cert.issueDate,
+        txHash: cert.txHash,
+        status: cert.status,
+        identifierMasked: cert.identifierMasked,
+        manifestDigest: cert.manifestDigest,
+        ipfsCid: cert.ipfsCid,
+        revokedAt: cert.revokedAt,
+        revokeReason: cert.revokeReason,
+        voteSummary: {
+          approvals: votes.filter((v) => v.decision === "approve").length,
+          denials: votes.filter((v) => v.decision === "deny").length,
+          total: votes.length
+        }
+      };
+    })
+  );
 }
 
 export function createApp() {
@@ -206,24 +242,13 @@ export function createApp() {
     const user = (req as express.Request & { user: { orgId: string | null } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
     const certificates = await store.listCertificatesByOrg(user.orgId);
-    const items = await Promise.all(
-      certificates.map(async (cert) => {
-        const votes = await store.listCertificateVotes(cert.certUuid);
-        return {
-          ...cert,
-          voteSummary: {
-            approvals: votes.filter((v) => v.decision === "approve").length,
-            denials: votes.filter((v) => v.decision === "deny").length,
-            total: votes.length
-          }
-        };
-      })
-    );
+    const items = await toCertificateListItems(store, certificates);
     return res.json({ items });
   });
 
   app.get("/api/certificates", requireRole(["super_admin"]), async (_req, res) => {
-    const items = await store.listAllCertificates();
+    const certificates = await store.listAllCertificates();
+    const items = await toCertificateListItems(store, certificates);
     return res.json({ items });
   });
 
@@ -261,6 +286,20 @@ export function createApp() {
       parsed.data.identifierValue.length <= 4
         ? "****"
         : `${parsed.data.identifierValue.slice(0, 2)}****${parsed.data.identifierValue.slice(-2)}`;
+    const manifest = {
+      schema: "docverify-certificate-manifest/v1",
+      certUuid,
+      orgId: parsed.data.orgId,
+      branchId: parsed.data.branchId,
+      certType: parsed.data.certType,
+      identifierType: parsed.data.identifierType,
+      certHash,
+      issueDate: parsed.data.issueDate,
+      identifierMasked
+    };
+    const manifestDigest = sha256HexUtf8(canonicalJsonStringify(manifest));
+    const ipfsResult = await uploadJsonToIpfs(manifest, `cert-${certUuid}.json`);
+    const ipfsCid = ipfsResult?.cid ?? null;
     const cert = await store.createCertificate({
       certUuid,
       orgId: parsed.data.orgId,
@@ -270,12 +309,17 @@ export function createApp() {
       txHash: "PENDING_CHAIN_WRITE",
       holderNameEncrypted: encryptPII(parsed.data.holderName),
       holderDobEncrypted: encryptPII(parsed.data.holderDob),
-      identifierMasked
+      identifierMasked,
+      manifestDigest,
+      ipfsCid
     });
     return res.status(201).json({
       certUuid: cert.certUuid,
       certHash: cert.certHash,
-      status: cert.status
+      status: cert.status,
+      manifestDigest: cert.manifestDigest,
+      ipfsCid: cert.ipfsCid,
+      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid)
     });
   });
 
@@ -353,7 +397,9 @@ export function createApp() {
         certUuid: cert.certUuid,
         orgId: cert.orgId,
         certHash: cert.certHash,
-        certType: cert.certType
+        certType: cert.certType,
+        manifestDigest: cert.manifestDigest,
+        ipfsCid: cert.ipfsCid
       });
     } else if (requiredMajority > 0 && denials >= requiredMajority) {
       finalStatus = "denied";
@@ -394,6 +440,10 @@ export function createApp() {
       issueDate: cert.issueDate,
       txHash: cert.txHash,
       revokedAt: cert.revokedAt,
+      certHash: cert.certHash,
+      manifestDigest: cert.manifestDigest,
+      ipfsCid: cert.ipfsCid,
+      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
       pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
     });
   });
@@ -412,6 +462,10 @@ export function createApp() {
       issueDate: cert.issueDate,
       txHash: cert.txHash,
       revokedAt: cert.revokedAt,
+      certHash: cert.certHash,
+      manifestDigest: cert.manifestDigest,
+      ipfsCid: cert.ipfsCid,
+      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
       pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
     });
   });

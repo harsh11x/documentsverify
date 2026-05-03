@@ -29,3 +29,28 @@ export function stableCertHash(orgId: string, certType: string, identifierValue:
     .update(`${orgId.trim().toLowerCase()}|${certType.trim().toLowerCase()}|${identifierValue.trim().toLowerCase()}`)
     .digest("hex");
 }
+
+/** Deterministic JSON for hashing (sorted object keys, stable arrays). */
+export function canonicalJsonStringify(value: unknown): string {
+  if (value === undefined) return "null";
+  if (value === null) return "null";
+  const t = typeof value;
+  if (t === "number" || t === "boolean") return JSON.stringify(value);
+  if (t === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => canonicalJsonStringify(v)).join(",")}]`;
+  }
+  if (t === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const parts = keys
+      .filter((k) => obj[k] !== undefined)
+      .map((k) => `${JSON.stringify(k)}:${canonicalJsonStringify(obj[k])}`);
+    return `{${parts.join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function sha256HexUtf8(input: string): string {
+  return crypto.createHash("sha256").update(input, "utf8").digest("hex");
+}

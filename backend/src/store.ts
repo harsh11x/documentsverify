@@ -38,6 +38,10 @@ export type CertRecord = {
   holderNameEncrypted: string;
   holderDobEncrypted: string;
   identifierMasked: string;
+  /** SHA-256 (hex) of canonical JSON manifest pinned to IPFS when upload succeeds. */
+  manifestDigest: string;
+  /** IPFS CID (v0 Qm… or v1 bafy…) of the manifest JSON; null if upload skipped or failed. */
+  ipfsCid: string | null;
   revokedAt: string | null;
   revokeReason: string | null;
 };
@@ -87,8 +91,9 @@ class MemoryStore implements Store {
     const existing = [...this.users.values()].find((u) => u.email === email);
     if (existing) return;
     const passwordHash = await hash(password, 10);
-    this.users.set(crypto.randomUUID(), {
-      userId: crypto.randomUUID(),
+    const userId = crypto.randomUUID();
+    this.users.set(userId, {
+      userId,
       email,
       passwordHash,
       role: "super_admin",
@@ -266,6 +271,8 @@ class PostgresStore implements Store {
         holder_name_encrypted TEXT NOT NULL,
         holder_dob_encrypted TEXT NOT NULL,
         identifier_masked TEXT NOT NULL,
+        manifest_digest TEXT NOT NULL DEFAULT '',
+        ipfs_cid TEXT NULL,
         revoked_at TEXT NULL,
         revoke_reason TEXT NULL
       );
@@ -278,6 +285,8 @@ class PostgresStore implements Store {
         created_at TEXT NOT NULL
       );
     `);
+    await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS manifest_digest TEXT NOT NULL DEFAULT ''`);
+    await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS ipfs_cid TEXT NULL`);
   }
 
   async createSuperAdmin(email: string, password: string) {
@@ -378,8 +387,8 @@ class PostgresStore implements Store {
     const cert: CertRecord = { ...input, status: "pending_approval", revokedAt: null, revokeReason: null };
     await this.pool.query(
       `INSERT INTO certificates
-       (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,revoked_at,revoke_reason)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+       (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,manifest_digest,ipfs_cid,revoked_at,revoke_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [
         cert.certUuid,
         cert.orgId,
@@ -391,6 +400,8 @@ class PostgresStore implements Store {
         cert.holderNameEncrypted,
         cert.holderDobEncrypted,
         cert.identifierMasked,
+        cert.manifestDigest,
+        cert.ipfsCid,
         cert.revokedAt,
         cert.revokeReason
       ]
@@ -415,6 +426,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -433,6 +446,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -461,6 +476,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -481,6 +498,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
@@ -504,6 +523,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
@@ -587,6 +608,8 @@ class PostgresStore implements Store {
       holderNameEncrypted: c.holder_name_encrypted,
       holderDobEncrypted: c.holder_dob_encrypted,
       identifierMasked: c.identifier_masked,
+      manifestDigest: c.manifest_digest ?? "",
+      ipfsCid: c.ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
