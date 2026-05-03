@@ -64,6 +64,11 @@ const revokeSchema = z.object({
   reason: z.string().min(3)
 });
 
+const certVoteSchema = z.object({
+  decision: z.enum(["approve", "deny"]),
+  reason: z.string().min(3)
+});
+
 const publicLookupSchema = z.object({
   orgId: z.string().min(1),
   certType: z.string().min(1),
@@ -200,7 +205,20 @@ export function createApp() {
   app.get("/api/certificates/mine", requireRole(["org_admin"]), async (req, res) => {
     const user = (req as express.Request & { user: { orgId: string | null } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
-    const items = await store.listCertificatesByOrg(user.orgId);
+    const certificates = await store.listCertificatesByOrg(user.orgId);
+    const items = await Promise.all(
+      certificates.map(async (cert) => {
+        const votes = await store.listCertificateVotes(cert.certUuid);
+        return {
+          ...cert,
+          voteSummary: {
+            approvals: votes.filter((v) => v.decision === "approve").length,
+            denials: votes.filter((v) => v.decision === "deny").length,
+            total: votes.length
+          }
+        };
+      })
+    );
     return res.json({ items });
   });
 
@@ -234,6 +252,9 @@ export function createApp() {
   app.post("/api/certificates/issue", requireRole(["org_admin"]), async (req, res) => {
     const parsed = issueSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    if (user.orgId !== parsed.data.orgId) return res.status(403).json({ error: "issuer_org_mismatch" });
     const certUuid = crypto.randomUUID();
     const certHash = stableCertHash(parsed.data.orgId, parsed.data.certType, parsed.data.identifierValue);
     const identifierMasked =
@@ -251,16 +272,103 @@ export function createApp() {
       holderDobEncrypted: encryptPII(parsed.data.holderDob),
       identifierMasked
     });
-    await enqueueChainJob("certificate-issue", {
-      certUuid: cert.certUuid,
-      orgId: cert.orgId,
-      certHash: cert.certHash,
-      certType: cert.certType
-    });
     return res.status(201).json({
       certUuid: cert.certUuid,
       certHash: cert.certHash,
       status: cert.status
+    });
+  });
+
+  app.get("/api/certificates/review/incoming", requireRole(["org_admin"]), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const items = await store.listCertificatesForReview(user.orgId);
+    return res.json({
+      items: items.map((cert) => ({
+        certUuid: cert.certUuid,
+        certType: cert.certType,
+        issueDate: cert.issueDate,
+        status: cert.status,
+        identifierMasked: cert.identifierMasked
+      }))
+    });
+  });
+
+  app.get("/api/certificates/review/history", requireRole(["org_admin"]), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const votes = await store.listVotesByReviewerOrg(user.orgId);
+    const items = await Promise.all(
+      votes.map(async (vote) => {
+        const cert = await store.findCertificateByUuid(vote.certUuid);
+        return {
+          certUuid: vote.certUuid,
+          certType: cert?.certType ?? "Unknown",
+          issueDate: cert?.issueDate ?? null,
+          finalStatus: cert?.status ?? "unknown",
+          yourDecision: vote.decision,
+          reason: vote.reason,
+          decidedAt: vote.createdAt
+        };
+      })
+    );
+    return res.json({ items });
+  });
+
+  app.post("/api/certificates/:certUuid/vote", requireRole(["org_admin"]), async (req, res) => {
+    const parsed = certVoteSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+
+    const cert = await store.findCertificateByUuid(req.params.certUuid);
+    if (!cert) return res.status(404).json({ error: "certificate_not_found" });
+    if (cert.orgId === user.orgId) return res.status(403).json({ error: "self_review_not_allowed" });
+    if (cert.status !== "pending_approval") return res.status(409).json({ error: "certificate_already_decided" });
+    const eligibleReviewerOrgIds = await store.listEligibleReviewerOrgIds(cert.orgId);
+    if (!eligibleReviewerOrgIds.includes(user.orgId)) return res.status(403).json({ error: "not_eligible_reviewer" });
+
+    const existingVotes = await store.listCertificateVotes(cert.certUuid);
+    if (existingVotes.some((vote) => vote.reviewerOrgId === user.orgId)) {
+      return res.status(409).json({ error: "already_voted" });
+    }
+
+    await store.recordCertificateVote({
+      certUuid: cert.certUuid,
+      reviewerOrgId: user.orgId,
+      decision: parsed.data.decision,
+      reason: parsed.data.reason
+    });
+
+    const votes = await store.listCertificateVotes(cert.certUuid);
+    const requiredMajority = Math.floor(eligibleReviewerOrgIds.length / 2) + 1;
+    const approvals = votes.filter((vote) => vote.decision === "approve").length;
+    const denials = votes.filter((vote) => vote.decision === "deny").length;
+
+    let finalStatus: "pending_approval" | "verified" | "denied" = "pending_approval";
+    if (requiredMajority > 0 && approvals >= requiredMajority) {
+      finalStatus = "verified";
+      await store.updateCertificateStatus(cert.certUuid, "verified");
+      await enqueueChainJob("certificate-issue", {
+        certUuid: cert.certUuid,
+        orgId: cert.orgId,
+        certHash: cert.certHash,
+        certType: cert.certType
+      });
+    } else if (requiredMajority > 0 && denials >= requiredMajority) {
+      finalStatus = "denied";
+      await store.updateCertificateStatus(cert.certUuid, "denied");
+    }
+
+    return res.json({
+      certUuid: cert.certUuid,
+      status: finalStatus,
+      voteSummary: {
+        approvals,
+        denials,
+        total: votes.length,
+        requiredMajority
+      }
     });
   });
 

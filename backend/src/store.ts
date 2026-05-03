@@ -4,7 +4,8 @@ import { Pool } from "pg";
 
 export type Role = "super_admin" | "org_admin";
 export type OrgStatus = "pending_review" | "approved" | "rejected";
-export type CertStatus = "queued" | "verified" | "revoked";
+export type CertStatus = "pending_approval" | "verified" | "denied" | "revoked";
+export type VoteDecision = "approve" | "deny";
 
 export type UserRecord = {
   userId: string;
@@ -41,6 +42,15 @@ export type CertRecord = {
   revokeReason: string | null;
 };
 
+export type CertVoteRecord = {
+  voteId: string;
+  certUuid: string;
+  reviewerOrgId: string;
+  decision: VoteDecision;
+  reason: string;
+  createdAt: string;
+};
+
 export interface Store {
   initialize(): Promise<void>;
   createSuperAdmin(email: string, password: string): Promise<void>;
@@ -53,9 +63,15 @@ export interface Store {
   createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">): Promise<CertRecord>;
   markCertificateChainIssued(certUuid: string, txHash: string): Promise<void>;
   listCertificatesByOrg(orgId: string): Promise<CertRecord[]>;
+  listCertificatesForReview(orgId: string): Promise<CertRecord[]>;
   listAllCertificates(): Promise<CertRecord[]>;
   findCertificateByUuid(certUuid: string): Promise<CertRecord | null>;
   findCertificateByHash(orgId: string, certHash: string): Promise<CertRecord | null>;
+  listEligibleReviewerOrgIds(excludingOrgId: string): Promise<string[]>;
+  recordCertificateVote(input: Omit<CertVoteRecord, "voteId" | "createdAt">): Promise<CertVoteRecord>;
+  listCertificateVotes(certUuid: string): Promise<CertVoteRecord[]>;
+  listVotesByReviewerOrg(orgId: string): Promise<CertVoteRecord[]>;
+  updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">): Promise<void>;
   revokeCertificate(certUuid: string, reason: string): Promise<CertRecord | null>;
 }
 
@@ -63,6 +79,7 @@ class MemoryStore implements Store {
   private users = new Map<string, UserRecord>();
   private orgs = new Map<string, OrgRecord>();
   private certs = new Map<string, CertRecord>();
+  private votes = new Map<string, CertVoteRecord>();
 
   async initialize() {}
 
@@ -128,7 +145,7 @@ class MemoryStore implements Store {
   }
 
   async createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">) {
-    const cert: CertRecord = { ...input, status: "queued", revokedAt: null, revokeReason: null };
+    const cert: CertRecord = { ...input, status: "pending_approval", revokedAt: null, revokeReason: null };
     this.certs.set(cert.certUuid, cert);
     return cert;
   }
@@ -137,12 +154,20 @@ class MemoryStore implements Store {
     const cert = this.certs.get(certUuid);
     if (!cert) return;
     cert.txHash = txHash;
-    cert.status = "verified";
     this.certs.set(certUuid, cert);
   }
 
   async listCertificatesByOrg(orgId: string) {
     return [...this.certs.values()].filter((c) => c.orgId === orgId);
+  }
+
+  async listCertificatesForReview(orgId: string) {
+    const votedCertUuids = new Set(
+      [...this.votes.values()].filter((v) => v.reviewerOrgId === orgId).map((v) => v.certUuid)
+    );
+    return [...this.certs.values()].filter(
+      (c) => c.orgId !== orgId && c.status === "pending_approval" && !votedCertUuids.has(c.certUuid)
+    );
   }
 
   async listAllCertificates() {
@@ -155,6 +180,44 @@ class MemoryStore implements Store {
 
   async findCertificateByHash(orgId: string, certHash: string) {
     return [...this.certs.values()].find((c) => c.orgId === orgId && c.certHash === certHash) ?? null;
+  }
+
+  async listEligibleReviewerOrgIds(excludingOrgId: string) {
+    const unique = new Set<string>();
+    for (const user of this.users.values()) {
+      if (user.role === "org_admin" && user.orgId && user.orgId !== excludingOrgId) {
+        unique.add(user.orgId);
+      }
+    }
+    return [...unique];
+  }
+
+  async recordCertificateVote(input: Omit<CertVoteRecord, "voteId" | "createdAt">) {
+    const vote: CertVoteRecord = {
+      voteId: crypto.randomUUID(),
+      certUuid: input.certUuid,
+      reviewerOrgId: input.reviewerOrgId,
+      decision: input.decision,
+      reason: input.reason,
+      createdAt: new Date().toISOString()
+    };
+    this.votes.set(vote.voteId, vote);
+    return vote;
+  }
+
+  async listCertificateVotes(certUuid: string) {
+    return [...this.votes.values()].filter((v) => v.certUuid === certUuid);
+  }
+
+  async listVotesByReviewerOrg(orgId: string) {
+    return [...this.votes.values()].filter((v) => v.reviewerOrgId === orgId);
+  }
+
+  async updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">) {
+    const cert = this.certs.get(certUuid);
+    if (!cert) return;
+    cert.status = status;
+    this.certs.set(certUuid, cert);
   }
 
   async revokeCertificate(certUuid: string, reason: string) {
@@ -205,6 +268,14 @@ class PostgresStore implements Store {
         identifier_masked TEXT NOT NULL,
         revoked_at TEXT NULL,
         revoke_reason TEXT NULL
+      );
+      CREATE TABLE IF NOT EXISTS certificate_votes (
+        vote_id UUID PRIMARY KEY,
+        cert_uuid UUID NOT NULL,
+        reviewer_org_id TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL
       );
     `);
   }
@@ -304,7 +375,7 @@ class PostgresStore implements Store {
   }
 
   async createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">) {
-    const cert: CertRecord = { ...input, status: "queued", revokedAt: null, revokeReason: null };
+    const cert: CertRecord = { ...input, status: "pending_approval", revokedAt: null, revokeReason: null };
     await this.pool.query(
       `INSERT INTO certificates
        (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,revoked_at,revoke_reason)
@@ -328,7 +399,7 @@ class PostgresStore implements Store {
   }
 
   async markCertificateChainIssued(certUuid: string, txHash: string) {
-    await this.pool.query("UPDATE certificates SET tx_hash=$1,status='verified' WHERE cert_uuid=$2", [txHash, certUuid]);
+    await this.pool.query("UPDATE certificates SET tx_hash=$1 WHERE cert_uuid=$2", [txHash, certUuid]);
   }
 
   async listCertificatesByOrg(orgId: string) {
@@ -351,6 +422,34 @@ class PostgresStore implements Store {
 
   async listAllCertificates() {
     const result = await this.pool.query("SELECT * FROM certificates ORDER BY issue_date DESC");
+    return result.rows.map((c) => ({
+      certUuid: c.cert_uuid,
+      orgId: c.org_id,
+      certType: c.cert_type,
+      certHash: c.cert_hash,
+      issueDate: c.issue_date,
+      txHash: c.tx_hash,
+      status: c.status,
+      holderNameEncrypted: c.holder_name_encrypted,
+      holderDobEncrypted: c.holder_dob_encrypted,
+      identifierMasked: c.identifier_masked,
+      revokedAt: c.revoked_at,
+      revokeReason: c.revoke_reason
+    })) as CertRecord[];
+  }
+
+  async listCertificatesForReview(orgId: string) {
+    const result = await this.pool.query(
+      `SELECT c.* FROM certificates c
+       WHERE c.org_id <> $1
+         AND c.status = 'pending_approval'
+         AND NOT EXISTS (
+           SELECT 1 FROM certificate_votes v
+           WHERE v.cert_uuid = c.cert_uuid AND v.reviewer_org_id = $1
+         )
+       ORDER BY c.issue_date DESC`,
+      [orgId]
+    );
     return result.rows.map((c) => ({
       certUuid: c.cert_uuid,
       orgId: c.org_id,
@@ -408,6 +507,65 @@ class PostgresStore implements Store {
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
+  }
+
+  async listEligibleReviewerOrgIds(excludingOrgId: string) {
+    const result = await this.pool.query(
+      "SELECT DISTINCT org_id FROM users WHERE role='org_admin' AND org_id IS NOT NULL AND org_id <> $1",
+      [excludingOrgId]
+    );
+    return result.rows.map((r) => r.org_id as string);
+  }
+
+  async recordCertificateVote(input: Omit<CertVoteRecord, "voteId" | "createdAt">) {
+    const vote: CertVoteRecord = {
+      voteId: crypto.randomUUID(),
+      certUuid: input.certUuid,
+      reviewerOrgId: input.reviewerOrgId,
+      decision: input.decision,
+      reason: input.reason,
+      createdAt: new Date().toISOString()
+    };
+    await this.pool.query(
+      `INSERT INTO certificate_votes (vote_id, cert_uuid, reviewer_org_id, decision, reason, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [vote.voteId, vote.certUuid, vote.reviewerOrgId, vote.decision, vote.reason, vote.createdAt]
+    );
+    return vote;
+  }
+
+  async listCertificateVotes(certUuid: string) {
+    const result = await this.pool.query(
+      "SELECT vote_id, cert_uuid, reviewer_org_id, decision, reason, created_at FROM certificate_votes WHERE cert_uuid=$1 ORDER BY created_at ASC",
+      [certUuid]
+    );
+    return result.rows.map((v) => ({
+      voteId: v.vote_id,
+      certUuid: v.cert_uuid,
+      reviewerOrgId: v.reviewer_org_id,
+      decision: v.decision,
+      reason: v.reason,
+      createdAt: v.created_at
+    })) as CertVoteRecord[];
+  }
+
+  async listVotesByReviewerOrg(orgId: string) {
+    const result = await this.pool.query(
+      "SELECT vote_id, cert_uuid, reviewer_org_id, decision, reason, created_at FROM certificate_votes WHERE reviewer_org_id=$1 ORDER BY created_at DESC",
+      [orgId]
+    );
+    return result.rows.map((v) => ({
+      voteId: v.vote_id,
+      certUuid: v.cert_uuid,
+      reviewerOrgId: v.reviewer_org_id,
+      decision: v.decision,
+      reason: v.reason,
+      createdAt: v.created_at
+    })) as CertVoteRecord[];
+  }
+
+  async updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">) {
+    await this.pool.query("UPDATE certificates SET status=$1 WHERE cert_uuid=$2", [status, certUuid]);
   }
 
   async revokeCertificate(certUuid: string, reason: string) {

@@ -19,7 +19,7 @@ describe("backend-api", () => {
     expect(res.body.status).toBe("ok");
   });
 
-  it("issues and verifies certificate without leaking PII", async () => {
+  it("keeps new certificate pending approval until majority vote", async () => {
     const app = createApp();
     const issueRes = await request(app).post("/api/certificates/issue").send({
       orgId: "org-1",
@@ -35,12 +35,14 @@ describe("backend-api", () => {
     expect(issueRes.status).toBe(201);
     expect(issueRes.body.certUuid).toBeTruthy();
     expect(issueRes.body.certHash).toBeTruthy();
+    expect(issueRes.body.status).toBe("pending_approval");
 
     const verifyRes = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.pii.holderName).toBe("REDACTED");
     expect(verifyRes.body.pii.holderDob).toBe("REDACTED");
     expect(verifyRes.body.pii.identifier).toContain("****");
+    expect(verifyRes.body.status).toBe("pending_approval");
   });
 
   it("verifies by org and identifier, then revokes", async () => {
@@ -62,7 +64,7 @@ describe("backend-api", () => {
       identifierValue: "EMP-887766"
     });
     expect(lookupRes.status).toBe(200);
-    expect(lookupRes.body.status).toBe("queued");
+    expect(lookupRes.body.status).toBe("pending_approval");
 
     const revokeRes = await request(app).post("/api/certificates/revoke").send({
       certUuid: issueRes.body.certUuid,
@@ -82,6 +84,60 @@ describe("backend-api", () => {
     }
     const limited = await request(app).get("/api/public/verify/non-existent");
     expect(limited.status).toBe(429);
+  });
+
+  it("finalizes certificate with decentralized majority vote", async () => {
+    const app = createApp();
+
+    const reviewerOne = await request(app).post("/api/org/register").send({
+      name: "Reviewer Org One",
+      city: "Mumbai",
+      orgType: "PVT",
+      sector: "Education",
+      domain: "University",
+      adminEmail: "reviewer1@test.local"
+    });
+    const reviewerTwo = await request(app).post("/api/org/register").send({
+      name: "Reviewer Org Two",
+      city: "Pune",
+      orgType: "PVT",
+      sector: "Education",
+      domain: "College",
+      adminEmail: "reviewer2@test.local"
+    });
+
+    const issueRes = await request(app)
+      .post("/api/certificates/issue")
+      .send({
+        orgId: "issuer-org",
+        branchId: "branch-1",
+        certType: "Degree",
+        identifierType: "Roll Number",
+        identifierValue: "RN-6789",
+        holderName: "Charlie Example",
+        holderDob: "1999-05-04",
+        issueDate: "2026-04-13"
+      })
+      .set("Authorization", `Bearer ${token("org_admin", "issuer-org")}`);
+    expect(issueRes.status).toBe(201);
+
+    const firstVote = await request(app)
+      .post(`/api/certificates/${issueRes.body.certUuid}/vote`)
+      .set("Authorization", `Bearer ${token("org_admin", reviewerOne.body.orgId)}`)
+      .send({ decision: "approve", reason: "Meets policy checks" });
+    expect(firstVote.status).toBe(200);
+    expect(firstVote.body.status).toBe("pending_approval");
+
+    const secondVote = await request(app)
+      .post(`/api/certificates/${issueRes.body.certUuid}/vote`)
+      .set("Authorization", `Bearer ${token("org_admin", reviewerTwo.body.orgId)}`)
+      .send({ decision: "approve", reason: "Valid encrypted payload metadata" });
+    expect(secondVote.status).toBe(200);
+    expect(secondVote.body.status).toBe("verified");
+
+    const verifyRes = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.status).toBe("verified");
   });
 
   it("supports org onboarding and approval with auth", async () => {
