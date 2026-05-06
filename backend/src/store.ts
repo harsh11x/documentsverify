@@ -60,6 +60,7 @@ export interface Store {
   createSuperAdmin(email: string, password: string): Promise<void>;
   authenticate(email: string, password: string): Promise<UserRecord | null>;
   createOrgApplication(input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash">): Promise<OrgRecord>;
+  listApprovedOrgs(): Promise<OrgRecord[]>;
   listPendingOrgs(): Promise<OrgRecord[]>;
   decideOrg(orgId: string, decision: "approve" | "reject", reason: string): Promise<OrgRecord | null>;
   markOrgChainRegistered(orgId: string, txHash: string): Promise<void>;
@@ -116,6 +117,10 @@ class MemoryStore implements Store {
 
   async listPendingOrgs() {
     return [...this.orgs.values()].filter((o) => o.status === "pending_review");
+  }
+
+  async listApprovedOrgs() {
+    return [...this.orgs.values()].filter((o) => o.status === "approved");
   }
 
   async decideOrg(orgId: string, decision: "approve" | "reject", reason: string) {
@@ -322,6 +327,23 @@ class PostgresStore implements Store {
   async listPendingOrgs() {
     const result = await this.pool.query(
       "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash FROM organizations WHERE status='pending_review'"
+    );
+    return result.rows.map((r) => ({
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash
+    })) as OrgRecord[];
+  }
+
+  async listApprovedOrgs() {
+    const result = await this.pool.query(
+      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash FROM organizations WHERE status='approved'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,

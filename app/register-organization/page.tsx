@@ -1,5 +1,5 @@
-import StitchFrame from "../_components/StitchFrame";
+import { redirect } from "next/navigation";
 
 export default function RegisterOrganizationPage() {
-  return <StitchFrame slug="register-organization" title="Register Organization" />;
+  redirect("/signup");
 }

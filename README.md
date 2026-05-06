@@ -64,7 +64,7 @@ Important behavior:
 - PII fields (holder name/DOB) are encrypted before storage.
 - public endpoints only return redacted PII.
 - cert lookup uses deterministic cert hash (`stableCertHash`) for privacy-preserving verification.
-- queue failures are non-blocking in local/dev mode.
+- queue enqueue failures surface as API errors (fail-fast behavior).
 
 Core endpoints:
 - `POST /api/auth/login`
@@ -104,9 +104,9 @@ This means:
 
 ## Worker Responsibilities (`workers`)
 
-Workers process two queues:
-- `bulk-certificate-import` (placeholder flow)
-- `chain-write` (active chain transaction flow)
+Workers process queue workloads with production-safe behavior:
+- `bulk-certificate-import` is intentionally disabled until implemented
+- `chain-write` is the active chain transaction flow
 
 For `chain-write`, workers:
 - submit org/certificate transactions to configured provider
@@ -127,7 +127,7 @@ For `chain-write`, workers:
     - `/transactions/register-org`
     - `/transactions/issue-certificate`
 
-If live chain config is missing in local development, workers can generate synthetic tx hashes for simulation.
+Synthetic chain tx mode is disabled by default and must be explicitly enabled with `ALLOW_SYNTHETIC_CHAIN_TX=true` for local simulations.
 
 ---
 
@@ -143,8 +143,7 @@ From repo root:
    - `AES_256_KEY=12345678901234567890123456789012 npm run dev:all`
 4. Run full local stack (includes workers):
    - `AES_256_KEY=12345678901234567890123456789012 npm run run:beast`
-5. If Redis is unavailable, disable queues:
-   - `DISABLE_QUEUES=true AES_256_KEY=12345678901234567890123456789012 npm run dev:all`
+5. Start workers only when Redis and chain configuration are available.
 
 Ports:
 - public app: `http://localhost:3000`

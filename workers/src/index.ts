@@ -3,15 +3,27 @@ import { Queue, Worker } from "bullmq";
 import { ethers } from "ethers";
 import { Redis } from "ioredis";
 
+const isProduction = process.env.NODE_ENV === "production";
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+if (isProduction && !process.env.REDIS_URL) {
+  throw new Error("REDIS_URL is required in production");
+}
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
 export const bulkQueue = new Queue("bulk-certificate-import", { connection });
 export const chainWriteQueue = new Queue("chain-write", { connection });
 
 const API_BASE_URL = process.env.INTERNAL_API_BASE_URL || "http://localhost:4000";
-const WORKER_TOKEN = process.env.CHAIN_WORKER_TOKEN || "dev_chain_worker_token";
+const WORKER_TOKEN = process.env.CHAIN_WORKER_TOKEN;
+if (isProduction && !process.env.INTERNAL_API_BASE_URL) {
+  throw new Error("INTERNAL_API_BASE_URL is required in production");
+}
+if (!WORKER_TOKEN) {
+  throw new Error("CHAIN_WORKER_TOKEN is required");
+}
+const workerToken = WORKER_TOKEN;
 const BLOCKCHAIN_PROVIDER = (process.env.BLOCKCHAIN_PROVIDER || "evm").toLowerCase();
+const allowSyntheticTx = process.env.ALLOW_SYNTHETIC_CHAIN_TX === "true";
 
 const orgRegistryAbi = [
   "function registerOrg(string orgId, bytes32 orgNameHash, string sector, string orgType, address adminAddress)"
@@ -31,6 +43,9 @@ type TxExecution = {
 };
 
 function syntheticTxHash(jobName: string, payload: Record<string, unknown>): string {
+  if (isProduction || !allowSyntheticTx) {
+    throw new Error("synthetic_tx_disabled");
+  }
   return `0x${ethers.id(`${jobName}:${JSON.stringify(payload)}:${Date.now()}`).slice(2, 34)}`;
 }
 
@@ -40,7 +55,7 @@ async function submitFabricTx(jobName: string, payload: Record<string, unknown>)
   const fabricChaincode = process.env.FABRIC_CHAINCODE || "certificates";
 
   if (!fabricGatewayUrl) {
-    return syntheticTxHash(`fabric:${jobName}`, payload);
+    throw new Error("fabric_gateway_missing");
   }
 
   const endpoint =
@@ -66,7 +81,9 @@ async function submitFabricTx(jobName: string, payload: Record<string, unknown>)
   }
 
   const body = (await response.json()) as { txHash?: string; transactionId?: string };
-  return body.txHash || body.transactionId || syntheticTxHash(`fabric:${jobName}`, payload);
+  const hash = body.txHash || body.transactionId;
+  if (!hash) throw new Error("fabric_gateway_missing_tx_hash");
+  return hash;
 }
 
 function formatGwei(value: bigint): string {
@@ -92,10 +109,8 @@ async function submitEvmTx(jobName: string, payload: Record<string, unknown>): P
     process.env.CERT_REGISTRY_ADDRESS !== "0x0000000000000000000000000000000000000000";
 
   if (!hasLiveConfig) {
-    return {
-      txHash: syntheticTxHash(jobName, payload),
-      blockchainProvider: "evm"
-    };
+    if (!allowSyntheticTx) throw new Error("evm_chain_config_missing");
+    return { txHash: syntheticTxHash(jobName, payload), blockchainProvider: "evm" };
   }
 
   const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
@@ -159,7 +174,7 @@ async function callback(path: string, body: Record<string, unknown>) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-chain-worker-token": WORKER_TOKEN
+      "x-chain-worker-token": workerToken
     },
     body: JSON.stringify(body)
   });
@@ -168,9 +183,7 @@ async function callback(path: string, body: Record<string, unknown>) {
 const worker = new Worker(
   "bulk-certificate-import",
   async (job) => {
-    // Placeholder worker. Next phase wires DB + chain transaction writes.
-    console.log(`Processing job ${job.id}`, job.data);
-    return { ok: true };
+    throw new Error(`bulk_certificate_import_not_supported job=${job.id}`);
   },
   { connection }
 );

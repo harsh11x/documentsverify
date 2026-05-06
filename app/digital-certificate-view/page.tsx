@@ -1,5 +1,5 @@
-import StitchFrame from "../_components/StitchFrame";
+import { redirect } from "next/navigation";
 
 export default function DigitalCertificateViewPage() {
-  return <StitchFrame slug="digital-certificate-view" title="Digital Certificate View" />;
+  redirect("/certificate-verification");
 }

@@ -1,5 +1,5 @@
-import StitchFrame from "../_components/StitchFrame";
+import { redirect } from "next/navigation";
 
 export default function VerifyTruthPage() {
-  return <StitchFrame slug="verify-truth" title="Verify Truth" />;
+  redirect("/");
 }

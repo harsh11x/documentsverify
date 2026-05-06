@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { getApiBaseUrl } from "../lib/api-base";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE_URL = getApiBaseUrl();
 
 type OrgType = "GOV" | "PVT";
 type CountryOption = { code: string; name: string };
