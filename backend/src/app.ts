@@ -78,6 +78,9 @@ const publicLookupSchema = z.object({
   certType: z.string().min(1),
   identifierValue: z.string().min(1)
 });
+const publicQuerySchema = z.object({
+  query: z.string().min(3)
+});
 
 const chainTxMetaSchema = z.object({
   blockchainProvider: z.enum(["evm", "fabric"]).optional(),
@@ -503,6 +506,56 @@ export function createApp() {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const certHash = stableCertHash(parsed.data.orgId, parsed.data.certType, parsed.data.identifierValue);
     const cert = await store.findCertificateByHash(parsed.data.orgId, certHash);
+    if (!cert) return res.status(404).json({ status: "not_found" });
+    return res.json({
+      status: cert.status,
+      certUuid: cert.certUuid,
+      orgId: cert.orgId,
+      certType: cert.certType,
+      issueDate: cert.issueDate,
+      txHash: cert.txHash,
+      revokedAt: cert.revokedAt,
+      certHash: cert.certHash,
+      manifestDigest: cert.manifestDigest,
+      ipfsCid: cert.ipfsCid,
+      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+      pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
+    });
+  });
+
+  app.post("/api/public/verify/query", verifyLimiter, async (req, res) => {
+    const parsed = publicQuerySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const query = parsed.data.query.trim();
+
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
+    if (uuidLike) {
+      const cert = await store.findCertificateByUuid(query);
+      if (!cert) return res.status(404).json({ status: "not_found" });
+      return res.json({
+        status: cert.status,
+        certUuid: cert.certUuid,
+        orgId: cert.orgId,
+        certType: cert.certType,
+        issueDate: cert.issueDate,
+        txHash: cert.txHash,
+        revokedAt: cert.revokedAt,
+        certHash: cert.certHash,
+        manifestDigest: cert.manifestDigest,
+        ipfsCid: cert.ipfsCid,
+        manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+        pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
+      });
+    }
+
+    const all = await store.listAllCertificates();
+    const normalized = query.toLowerCase();
+    const cert = all.find(
+      (item) =>
+        item.certHash.toLowerCase() === normalized ||
+        item.txHash.toLowerCase() === normalized ||
+        item.certUuid.toLowerCase() === normalized
+    );
     if (!cert) return res.status(404).json({ status: "not_found" });
     return res.json({
       status: cert.status,
