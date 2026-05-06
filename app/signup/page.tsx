@@ -35,15 +35,6 @@ export default function SignupPage() {
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const update = () => setIsMobile(window.innerWidth < 1024);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -141,81 +132,28 @@ export default function SignupPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at 80% 0%, rgba(109, 35, 249, 0.16) 0%, rgba(245, 247, 251, 0) 30%), linear-gradient(180deg, #f7f8fc 0%, #eef1f6 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: isMobile ? "14px" : "28px"
-      }}
-    >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "1120px",
-          background: "#fff",
-          border: "1px solid #e6eaf1",
-          boxShadow: "0 30px 80px rgba(30, 41, 59, 0.12)",
-          borderRadius: "18px",
-          overflow: "hidden",
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1.05fr 1.3fr"
-        }}
-      >
-        <aside
-          style={{
-            background:
-              "linear-gradient(165deg, rgba(17,24,39,1) 0%, rgba(36,47,66,1) 60%, rgba(109,35,249,0.95) 100%)",
-            color: "#f8fafc",
-            padding: isMobile ? "22px 18px" : "42px 34px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between"
-          }}
-        >
-          <div>
-            <p style={{ margin: 0, fontSize: "12px", letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.75 }}>
-              VERIFY_LEDGER
-            </p>
-            <h2 style={{ margin: "18px 0 12px", fontSize: isMobile ? "24px" : "34px", lineHeight: 1.05, fontWeight: 800 }}>
-              Organization onboarding.
-            </h2>
-            <p style={{ margin: 0, color: "rgba(241,245,249,0.85)", lineHeight: 1.5 }}>
-              Register your entity to issue trusted certificates and participate in the verification network.
-            </p>
-          </div>
-          <div style={{ display: "grid", gap: "8px", fontSize: "13px", color: "rgba(241,245,249,0.85)" }}>
-            <span>Multi-step trust review process</span>
-            <span>Location and entity metadata validation</span>
-            <span>Role-based admin provisioning</span>
-          </div>
-        </aside>
-
-        <div style={{ padding: isMobile ? "22px 16px" : "40px 34px" }}>
-          <h1 style={{ margin: "0 0 8px", fontSize: isMobile ? "24px" : "30px", fontWeight: 800, letterSpacing: "-0.02em" }}>
-            Organization Signup
-          </h1>
-          <p style={{ margin: "0 0 20px", color: "#4b5563" }}>Submit your organization for onboarding.</p>
+    <main style={{ minHeight: "100vh", background: "#05070d", padding: "20px" }}>
+      <section style={{ width: "100%", maxWidth: "1040px", margin: "0 auto", border: "3px solid #f8fafc", background: "#0b1220", padding: "28px", boxShadow: "14px 14px 0 #1e293b" }}>
+        <p style={{ margin: 0, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.18em", fontSize: "11px" }}>organization onboarding</p>
+        <h1 style={{ margin: "10px 0 8px", color: "#f8fafc" }}>Create organization account</h1>
+        <p style={{ marginTop: 0, color: "#9fb0c5" }}>Submit details for review and issue verifiable certificates once approved.</p>
 
           <form
             onSubmit={onSubmit}
-            style={{ display: "grid", gap: "12px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}
+            style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
           >
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1", gridColumn: "1 / -1" }}>
             Organization Name
             <input
               type="text"
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
               required
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             Country
             <select
               value={form.countryCode}
@@ -228,7 +166,7 @@ export default function SignupPage() {
                 updateField("city", "");
               }}
               required
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             >
               <option value="">{loadingCountries ? "Loading countries..." : "Select Country"}</option>
               {countries.map((country) => (
@@ -239,7 +177,7 @@ export default function SignupPage() {
             </select>
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             State
             <select
               value={form.stateCode}
@@ -251,7 +189,7 @@ export default function SignupPage() {
               }}
               required
               disabled={!form.countryCode || loadingStates}
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             >
               <option value="">
                 {!form.countryCode ? "Select Country First" : loadingStates ? "Loading states..." : "Select State"}
@@ -264,14 +202,14 @@ export default function SignupPage() {
             </select>
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             City
             <select
               value={form.city}
               onChange={(e) => updateField("city", e.target.value)}
               required
               disabled={!form.stateCode || loadingCities}
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             >
               <option value="">
                 {!form.stateCode ? "Select State First" : loadingCities ? "Loading cities..." : "Select City"}
@@ -284,52 +222,52 @@ export default function SignupPage() {
             </select>
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             Org Type
             <select
               value={form.orgType}
               onChange={(e) => updateField("orgType", e.target.value as OrgType)}
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             >
               <option value="PVT">Private</option>
               <option value="GOV">Government</option>
             </select>
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             Sector
             <input
               type="text"
               value={form.sector}
               onChange={(e) => updateField("sector", e.target.value)}
               required
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600 }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1" }}>
             Domain
             <input
               type="text"
               value={form.domain}
               onChange={(e) => updateField("domain", e.target.value)}
               required
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1", gridColumn: "1 / -1" }}>
             Admin Email
             <input
               type="email"
               value={form.adminEmail}
               onChange={(e) => updateField("adminEmail", e.target.value)}
               required
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1", gridColumn: "1 / -1" }}>
             Admin Password
             <input
               type="password"
@@ -338,11 +276,11 @@ export default function SignupPage() {
               required
               minLength={8}
               placeholder="Minimum 8 characters"
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontSize: "13px", fontWeight: 600, gridColumn: isMobile ? "span 1" : "span 2" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1", gridColumn: "1 / -1" }}>
             Mobile Number
             <input
               type="tel"
@@ -351,7 +289,7 @@ export default function SignupPage() {
               required
               pattern="^\+?[0-9]{8,15}$"
               placeholder="+919876543210"
-              style={{ border: "1px solid #d1d5db", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              style={{ border: "1px solid #334155", padding: "12px 14px", fontSize: "14px", borderRadius: "10px", background: "#09101c", color: "#e2e8f0" }}
             />
           </label>
 
@@ -361,15 +299,15 @@ export default function SignupPage() {
             style={{
               marginTop: "8px",
               border: "none",
-              background: "linear-gradient(90deg, #111827 0%, #243042 100%)",
-              color: "#fff",
+              background: "#f8fafc",
+              color: "#020617",
               padding: "13px 14px",
-              fontWeight: 800,
+              fontWeight: 900,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
               cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.7 : 1,
-              gridColumn: isMobile ? "span 1" : "span 2",
+              gridColumn: "1 / -1",
               borderRadius: "10px"
             }}
           >
@@ -380,11 +318,11 @@ export default function SignupPage() {
           {message ? (
             <p
               style={{
-                color: "#065f46",
+                color: "#4ade80",
                 marginTop: "14px",
                 fontSize: "14px",
-                background: "#ecfdf5",
-                border: "1px solid #86efac",
+                background: "#072112",
+                border: "1px solid #14532d",
                 padding: "10px 12px",
                 borderRadius: "10px"
               }}
@@ -395,11 +333,11 @@ export default function SignupPage() {
           {error ? (
             <p
               style={{
-                color: "#b91c1c",
+                color: "#fda4af",
                 marginTop: "14px",
                 fontSize: "14px",
-                background: "#fef2f2",
-                border: "1px solid #fca5a5",
+                background: "#2a0b13",
+                border: "1px solid #7f1d1d",
                 padding: "10px 12px",
                 borderRadius: "10px"
               }}
@@ -408,13 +346,12 @@ export default function SignupPage() {
             </p>
           ) : null}
 
-          <p style={{ marginTop: "16px", fontSize: "13px", color: "#4b5563" }}>
+          <p style={{ marginTop: "16px", fontSize: "13px", color: "#cbd5e1" }}>
             Already onboarded? <Link href="/login">Go to login</Link>
           </p>
           <p style={{ marginTop: "8px", fontSize: "13px" }}>
             <Link href="/">Back to home</Link>
           </p>
-        </div>
       </section>
     </main>
   );

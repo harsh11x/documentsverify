@@ -59,12 +59,12 @@ export default function CertificateVerificationPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f5f7fb", padding: "32px", color: "#111827" }}>
-      <section style={{ maxWidth: "900px", margin: "0 auto", background: "#fff", border: "1px solid #e5e7eb", padding: "28px" }}>
-        <h1 style={{ margin: 0, fontSize: "34px", fontWeight: 800 }}>Certificate Verification</h1>
-        <p style={{ color: "#4b5563" }}>Verify certificates against approved organizations.</p>
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: "10px", maxWidth: "520px" }}>
-          <select value={orgId} onChange={(e) => setOrgId(e.target.value)} required>
+    <main style={{ minHeight: "100vh", background: "#05070d", padding: "24px", color: "#e2e8f0" }}>
+      <section style={{ maxWidth: "920px", margin: "0 auto", background: "#0b1220", border: "3px solid #f8fafc", padding: "30px", boxShadow: "12px 12px 0 #1e293b" }}>
+        <h1 style={{ margin: 0, fontSize: "36px", fontWeight: 900, color: "#f8fafc" }}>Certificate Verification</h1>
+        <p style={{ color: "#9fb0c5" }}>Verify certificates against approved organizations in real time.</p>
+        <form onSubmit={onSubmit} style={{ display: "grid", gap: "10px", maxWidth: "560px" }}>
+          <select value={orgId} onChange={(e) => setOrgId(e.target.value)} required style={{ padding: "12px", border: "2px solid #f8fafc", background: "#05070d", color: "#e2e8f0" }}>
             <option value="">Select organization</option>
             {orgs.map((org) => (
               <option key={org.orgId} value={org.orgId}>
@@ -77,12 +77,13 @@ export default function CertificateVerificationPage() {
             onChange={(e) => setIdentifierValue(e.target.value)}
             placeholder="Certificate identifier"
             required
+            style={{ padding: "12px", border: "2px solid #f8fafc", background: "#05070d", color: "#e2e8f0" }}
           />
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading} style={{ padding: "12px", border: "2px solid #f8fafc", background: "#f8fafc", color: "#020617", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>
             {loading ? "Verifying..." : "Verify"}
           </button>
         </form>
-        {result ? <p style={{ marginTop: "12px" }}>{result}</p> : null}
+        {result ? <p style={{ marginTop: "14px", color: "#cbd5e1" }}>{result}</p> : null}
       </section>
     </main>
   );

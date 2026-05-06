@@ -232,35 +232,35 @@ export default function DashboardPage() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#f9f9f9",
+        background: "#05070d",
         padding: isMobile ? "12px" : "28px",
-        color: "#2d3435"
+        color: "#e2e8f0"
       }}
     >
       <div style={{ maxWidth: "1320px", margin: "0 auto", display: "grid", gap: "16px" }}>
         <section
           style={{
-            background: "#fff",
-            border: "1px solid rgba(45,52,53,0.08)",
+            background: "#0b1323",
+            border: "3px solid #f8fafc",
             borderRadius: "0px",
             padding: "24px 26px",
-            boxShadow: "0 24px 50px rgba(12,15,15,0.05)"
+            boxShadow: "12px 12px 0 #1e293b"
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexDirection: isMobile ? "column" : "row", alignItems: "flex-end" }}>
             <div>
-              <p style={{ margin: 0, fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>
+              <p style={{ margin: 0, fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>
                 Verification Control Layer
               </p>
               <h1 style={{ margin: "6px 0 0", fontSize: isMobile ? "28px" : "52px", fontWeight: 800, letterSpacing: "-0.04em", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
                 {title}.
               </h1>
-              <p style={{ margin: "8px 0 0", color: "#596061" }}>
+              <p style={{ margin: "8px 0 0", color: "#cbd5e1" }}>
                 Operational issuance, decentralized approvals, and trust-state monitoring for live certificates.
               </p>
             </div>
-            <div style={{ alignSelf: isMobile ? "flex-start" : "center", padding: "10px 12px", borderRadius: "0px", background: "#f2f4f4", border: "1px solid rgba(117,124,125,0.2)", fontSize: "11px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700 }}>
-              Active Org: <span style={{ color: "#2d3435" }}>{activeOrgId}</span>
+            <div style={{ alignSelf: isMobile ? "flex-start" : "center", padding: "10px 12px", borderRadius: "0px", background: "#0f172a", border: "1px solid #334155", fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700 }}>
+              Active Org: <span style={{ color: "#e2e8f0" }}>{activeOrgId}</span>
             </div>
           </div>
           {role === "org_admin" ? (
@@ -316,60 +316,60 @@ export default function DashboardPage() {
 
         <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1.15fr", gap: "16px" }}>
           {role !== "super_admin" ? (
-            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Issuance Console</p>
+            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Issuance Console</p>
               <h2 style={{ margin: "0 0 14px", fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Issue Certificate</h2>
               <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
-                <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-                <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-                <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-                <input value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-                <input type="date" value={issueForm.issueDate} onChange={(e) => setIssueForm((p) => ({ ...p, issueDate: e.target.value }))} required style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-                <button type="submit" style={{ padding: "12px 14px", background: "#2d3435", color: "#fff", border: "none", borderRadius: "0px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
+                <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <input value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <input type="date" value={issueForm.issueDate} onChange={(e) => setIssueForm((p) => ({ ...p, issueDate: e.target.value }))} required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <button type="submit" style={{ padding: "12px 14px", background: "#f8fafc", color: "#020617", border: "2px solid #f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
                   Issue Certificate
                 </button>
               </form>
             </article>
           ) : (
-            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Super Admin</p>
+            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+              <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Super Admin</p>
               <h2 style={{ margin: "0 0 10px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Organization tools</h2>
-              <p style={{ margin: 0, color: "#596061", fontSize: "14px", lineHeight: 1.5 }}>
+              <p style={{ margin: 0, color: "#cbd5e1", fontSize: "14px", lineHeight: 1.5 }}>
                 Certificate issuance is limited to organization accounts. Use the ledger below for a global view; approve new organizations from the admin flows as needed.
               </p>
             </article>
           )}
 
-          <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Verification Probe</p>
+          <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+            <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Verification Probe</p>
             <h2 style={{ margin: "0 0 14px", fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Verify by UUID</h2>
             <form onSubmit={onVerifyByUuid} style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
-              <input value={verifyUuid} onChange={(e) => setVerifyUuid(e.target.value)} placeholder="Enter certificate UUID" style={{ padding: "12px", border: "1px solid rgba(117,124,125,0.35)", borderRadius: "0px", background: "#fff" }} />
-              <button type="submit" style={{ padding: "12px 14px", background: "#6100eb", color: "#fff", border: "none", borderRadius: "0px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
+              <input value={verifyUuid} onChange={(e) => setVerifyUuid(e.target.value)} placeholder="Enter certificate UUID" style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+              <button type="submit" style={{ padding: "12px 14px", background: "#f8fafc", color: "#020617", border: "2px solid #f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
                 Verify Certificate
               </button>
             </form>
             {verifyResult ? (
-              <p style={{ marginTop: "12px", color: "#2d3435", fontSize: "13px", lineHeight: 1.5, background: "#f2f4f4", padding: "10px 12px", borderRadius: "0px", border: "1px solid rgba(117,124,125,0.2)" }}>
+              <p style={{ marginTop: "12px", color: "#e2e8f0", fontSize: "13px", lineHeight: 1.5, background: "#0f172a", padding: "10px 12px", borderRadius: "0px", border: "1px solid #334155" }}>
                 {verifyResult}
               </p>
             ) : null}
           </article>
         </section>
 
-        <section style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
+        <section style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: isMobile ? "10px" : 0 }}>
             <div>
-              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Ledger Index</p>
+              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Ledger Index</p>
               <h2 style={{ margin: 0, fontSize: "32px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>
                 {role === "super_admin" ? "All Certificates" : "Your Certificate Status"}
               </h2>
             </div>
-            <button onClick={() => void Promise.all([loadCertificates(), loadReviewWorkflows()])} style={{ padding: "10px 12px", border: "1px solid rgba(117,124,125,0.3)", background: "#f2f4f4", borderRadius: "0px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px" }}>
+            <button onClick={() => void Promise.all([loadCertificates(), loadReviewWorkflows()])} style={{ padding: "10px 12px", border: "2px solid #f8fafc", background: "#05070d", color: "#f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px" }}>
               Refresh
             </button>
           </div>
-          {loading ? <p style={{ color: "#596061" }}>Loading certificates...</p> : null}
+          {loading ? <p style={{ color: "#cbd5e1" }}>Loading certificates...</p> : null}
           {role === "org_admin" || role === "super_admin" ? (
             <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button onClick={() => setSubmittedFilter("all")} style={{ padding: "7px 10px", border: "1px solid rgba(117,124,125,0.3)", background: submittedFilter === "all" ? "#e5e7eb" : "#fff", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700 }}>All</button>
@@ -378,12 +378,12 @@ export default function DashboardPage() {
               <button onClick={() => setSubmittedFilter("denied")} style={{ padding: "7px 10px", border: "1px solid rgba(159,18,57,0.35)", background: submittedFilter === "denied" ? "#ffe4e6" : "#fff", color: "#9f1239", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700 }}>Denied</button>
             </div>
           ) : null}
-          {!loading && filteredSubmittedItems.length === 0 ? <p style={{ color: "#596061" }}>No certificates for this filter.</p> : null}
+          {!loading && filteredSubmittedItems.length === 0 ? <p style={{ color: "#cbd5e1" }}>No certificates for this filter.</p> : null}
           {!loading && filteredSubmittedItems.length > 0 ? (
             <div style={{ overflowX: "auto", marginTop: "10px" }}>
               <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
-                  <tr style={{ background: "#f2f4f4" }}>
+                  <tr style={{ background: "#0f172a" }}>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>UUID</th>
                     {role === "super_admin" ? (
                       <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Org</th>
@@ -426,22 +426,22 @@ export default function DashboardPage() {
               </table>
             </div>
           ) : null}
-          {notice ? <p style={{ marginTop: "10px", color: "#2d3435" }}>{notice}</p> : null}
+          {notice ? <p style={{ marginTop: "10px", color: "#e2e8f0" }}>{notice}</p> : null}
         </section>
 
         {role === "org_admin" ? (
           <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "16px" }}>
-            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Incoming Queue</p>
+            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Incoming Queue</p>
               <h2 style={{ margin: "0 0 12px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Pending Reviews</h2>
-              {incomingItems.length === 0 ? <p style={{ color: "#596061" }}>No incoming certificates to review.</p> : null}
+              {incomingItems.length === 0 ? <p style={{ color: "#cbd5e1" }}>No incoming certificates to review.</p> : null}
               <div style={{ display: "grid", gap: "10px" }}>
                 {incomingItems.map((item) => (
-                  <div key={item.certUuid} style={{ border: "1px solid rgba(117,124,125,0.2)", padding: "12px", background: "#f9f9f9" }}>
+                  <div key={item.certUuid} style={{ border: "1px solid #334155", padding: "12px", background: "#0f172a" }}>
                     <p style={{ margin: "0 0 6px", fontSize: "12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                       {item.certUuid.slice(0, 8)}...{item.certUuid.slice(-6)}
                     </p>
-                    <p style={{ margin: "0 0 6px", color: "#596061", fontSize: "12px" }}>
+                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>
                       {item.certType} | {item.issueDate} | {item.identifierMasked}
                     </p>
                     <div style={{ display: "flex", gap: "8px" }}>
@@ -457,21 +457,21 @@ export default function DashboardPage() {
               </div>
             </article>
 
-            <article style={{ background: "#fff", border: "1px solid rgba(45,52,53,0.08)", borderRadius: "0px", padding: "22px 22px", boxShadow: "0 16px 40px rgba(12,15,15,0.04)" }}>
-              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#596061", fontWeight: 700 }}>Your Approval History</p>
+            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Your Approval History</p>
               <h2 style={{ margin: "0 0 12px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Approved / Denied by You</h2>
-              {voteHistory.length === 0 ? <p style={{ color: "#596061" }}>No review history yet.</p> : null}
+              {voteHistory.length === 0 ? <p style={{ color: "#cbd5e1" }}>No review history yet.</p> : null}
               <div style={{ display: "grid", gap: "10px" }}>
                 {voteHistory.map((item) => (
-                  <div key={`${item.certUuid}-${item.decidedAt}`} style={{ border: "1px solid rgba(117,124,125,0.2)", padding: "12px", background: "#f9f9f9" }}>
+                  <div key={`${item.certUuid}-${item.decidedAt}`} style={{ border: "1px solid #334155", padding: "12px", background: "#0f172a" }}>
                     <p style={{ margin: "0 0 6px", fontSize: "12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                       {item.certUuid.slice(0, 8)}...{item.certUuid.slice(-6)}
                     </p>
-                    <p style={{ margin: "0 0 6px", color: "#596061", fontSize: "12px" }}>
+                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>
                       You: {item.yourDecision.toUpperCase()} | Final: {item.finalStatus.toUpperCase()}
                     </p>
-                    <p style={{ margin: "0 0 6px", color: "#596061", fontSize: "12px" }}>{item.certType}</p>
-                    <p style={{ margin: 0, color: "#2d3435", fontSize: "12px" }}>{item.reason}</p>
+                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>{item.certType}</p>
+                    <p style={{ margin: 0, color: "#e2e8f0", fontSize: "12px" }}>{item.reason}</p>
                   </div>
                 ))}
               </div>
