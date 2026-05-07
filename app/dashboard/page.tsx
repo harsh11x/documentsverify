@@ -120,6 +120,15 @@ export default function DashboardPage() {
     void loadReviewWorkflows();
   }, [token, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!token) return;
+    const interval = window.setInterval(() => {
+      void loadCertificates();
+      void loadReviewWorkflows();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [token, role]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function onIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;

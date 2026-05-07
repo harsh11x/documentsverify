@@ -10,6 +10,42 @@ import { uploadJsonToIpfs } from "./ipfs.js";
 import { canonicalJsonStringify, encryptPII, sha256HexUtf8, stableCertHash } from "./security.js";
 import { createStore, type CertRecord, type Store, Role } from "./store.js";
 
+type BootstrapOrgAccount = {
+  orgId: string;
+  name: string;
+  city: string;
+  domain: string;
+  adminEmail: string;
+  adminPassword: string;
+};
+
+const defaultBootstrapOrgAccounts: BootstrapOrgAccount[] = [
+  {
+    orgId: "org-northbridge-academy",
+    name: "Northbridge Academy",
+    city: "Pune",
+    domain: "northbridgeacademy.edu",
+    adminEmail: "registrar@northbridgeacademy.edu",
+    adminPassword: "Northbridge#2026"
+  },
+  {
+    orgId: "org-crestview-institute",
+    name: "Crestview Institute of Technology",
+    city: "Mumbai",
+    domain: "crestviewit.edu",
+    adminEmail: "cert-office@crestviewit.edu",
+    adminPassword: "Crestview#2026"
+  },
+  {
+    orgId: "org-riverdale-college",
+    name: "Riverdale College",
+    city: "Bengaluru",
+    domain: "riverdalecollege.edu",
+    adminEmail: "controller@riverdalecollege.edu",
+    adminPassword: "Riverdale#2026"
+  }
+];
+
 const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:3000,http://localhost:3001"),
   DATABASE_URL: z.string().optional(),
@@ -18,10 +54,7 @@ const envSchema = z.object({
   ORG_ADMIN_EMAIL_DOMAIN: z.string().min(3).default("example.com"),
   SUPER_ADMIN_EMAIL: z.string().email().optional(),
   SUPER_ADMIN_PASSWORD: z.string().min(8).optional(),
-  ENABLE_DEMO_DATA: z.enum(["true", "false"]).default("false"),
-  DEMO_ORG_ADMIN_EMAIL: z.string().email().optional(),
-  DEMO_ORG_ADMIN_PASSWORD: z.string().min(8).optional(),
-  DEMO_ORG_ID: z.string().min(1).optional(),
+  BOOTSTRAP_ORG_ACCOUNTS: z.string().optional(),
   IPFS_GATEWAY_PREFIX: z.string().default("https://ipfs.io/ipfs")
 });
 
@@ -130,6 +163,47 @@ async function toCertificateListItems(store: Store, certificates: CertRecord[]) 
   );
 }
 
+function parseBootstrapOrgAccounts(source?: string): BootstrapOrgAccount[] {
+  if (!source) return defaultBootstrapOrgAccounts;
+  try {
+    const parsed = JSON.parse(source);
+    const schema = z.array(
+      z.object({
+        orgId: z.string().min(3),
+        name: z.string().min(2),
+        city: z.string().min(2),
+        domain: z.string().min(3),
+        adminEmail: z.string().email(),
+        adminPassword: z.string().min(8)
+      })
+    );
+    return schema.parse(parsed);
+  } catch {
+    throw new Error("BOOTSTRAP_ORG_ACCOUNTS must be valid JSON array");
+  }
+}
+
+async function seedBootstrapOrganizations(store: Store, accounts: BootstrapOrgAccount[]) {
+  const [approved, pending] = await Promise.all([store.listApprovedOrgs(), store.listPendingOrgs()]);
+  const knownOrgIds = new Set<string>([...approved.map((org) => org.orgId), ...pending.map((org) => org.orgId)]);
+
+  for (const account of accounts) {
+    if (!knownOrgIds.has(account.orgId)) {
+      await store.createOrgApplication({
+        orgId: account.orgId,
+        name: account.name,
+        city: account.city,
+        orgType: "PVT",
+        sector: "Education",
+        domain: account.domain
+      });
+      await store.decideOrg(account.orgId, "approve", "Bootstrap approved private education institute");
+      knownOrgIds.add(account.orgId);
+    }
+    await store.createOrgAdmin(account.orgId, account.adminEmail, account.adminPassword);
+  }
+}
+
 export function createApp() {
   const rawEnv = envSchema.parse(process.env);
   const isProduction = process.env.NODE_ENV === "production";
@@ -140,6 +214,12 @@ export function createApp() {
     SUPER_ADMIN_EMAIL: rawEnv.SUPER_ADMIN_EMAIL ?? "admin@example.com",
     SUPER_ADMIN_PASSWORD: rawEnv.SUPER_ADMIN_PASSWORD ?? "change-me-in-env"
   };
+  const isTest = process.env.NODE_ENV === "test";
+  if (!isTest && !env.DATABASE_URL) {
+    throw new Error(
+      "DATABASE_URL is required so certificate and verification data persist. Start Postgres and set DATABASE_URL."
+    );
+  }
   if (isProduction && !env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required in production");
   }
@@ -158,19 +238,14 @@ export function createApp() {
   if (isProduction && process.env.DISABLE_QUEUES === "true") {
     throw new Error("DISABLE_QUEUES cannot be true in production");
   }
-  if (isProduction && env.ENABLE_DEMO_DATA === "true") {
-    throw new Error("ENABLE_DEMO_DATA cannot be true in production");
-  }
 
   const allowlist = env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
   const store = createStore(env.DATABASE_URL);
   void store.initialize().then(async () => {
     await store.createSuperAdmin(env.SUPER_ADMIN_EMAIL, env.SUPER_ADMIN_PASSWORD);
-    if (env.ENABLE_DEMO_DATA === "true") {
-      if (!env.DEMO_ORG_ID || !env.DEMO_ORG_ADMIN_EMAIL || !env.DEMO_ORG_ADMIN_PASSWORD) {
-        throw new Error("Demo data requested but demo org credentials are missing");
-      }
-      await store.createOrgAdmin(env.DEMO_ORG_ID, env.DEMO_ORG_ADMIN_EMAIL, env.DEMO_ORG_ADMIN_PASSWORD);
+    if (!isProduction && process.env.NODE_ENV !== "test") {
+      const bootstrapAccounts = parseBootstrapOrgAccounts(env.BOOTSTRAP_ORG_ACCOUNTS);
+      await seedBootstrapOrganizations(store, bootstrapAccounts);
     }
   });
   const app = express();

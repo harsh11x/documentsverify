@@ -74,6 +74,7 @@ Core endpoints:
 - `POST /api/certificates/issue`
 - `POST /api/certificates/revoke`
 - `POST /api/public/verify`
+- `POST /api/public/verify/query`
 - `GET /api/public/verify/:uuid`
 - internal callbacks:
   - `POST /internal/chain/org-registered`
@@ -144,6 +145,8 @@ From repo root:
 4. Run full local stack (includes workers):
    - `AES_256_KEY=12345678901234567890123456789012 npm run run:beast`
 5. Start workers only when Redis and chain configuration are available.
+6. (Optional in development) override bootstrap org login credentials:
+   - set `BOOTSTRAP_ORG_ACCOUNTS` in `.env` as a JSON array.
 
 Ports:
 - public app: `http://localhost:3000`
