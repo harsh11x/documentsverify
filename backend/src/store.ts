@@ -4,6 +4,7 @@ import { Pool } from "pg";
 
 export type Role = "super_admin" | "org_admin";
 export type OrgStatus = "pending_review" | "approved" | "rejected";
+export type OrgAccessState = "active" | "blocked" | "cooloff";
 export type CertStatus = "pending_approval" | "verified" | "denied" | "revoked";
 export type VoteDecision = "approve" | "deny";
 
@@ -25,6 +26,9 @@ export type OrgRecord = {
   status: OrgStatus;
   reviewReason: string | null;
   chainTxHash: string | null;
+  accessState: OrgAccessState;
+  accessReason: string | null;
+  coolOffUntil: string | null;
 };
 
 export type CertRecord = {
@@ -55,13 +59,39 @@ export type CertVoteRecord = {
   createdAt: string;
 };
 
+export type OrgVoteRecord = {
+  voteId: string;
+  orgId: string;
+  reviewerOrgId: string;
+  decision: VoteDecision;
+  reason: string;
+  createdAt: string;
+};
+
+export type OrgReviewView = OrgRecord & {
+  adminEmail: string | null;
+  certificateCount: number;
+};
+
 export interface Store {
   initialize(): Promise<void>;
   createSuperAdmin(email: string, password: string): Promise<void>;
   authenticate(email: string, password: string): Promise<UserRecord | null>;
-  createOrgApplication(input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash">): Promise<OrgRecord>;
+  createOrgApplication(
+    input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash" | "accessState" | "accessReason" | "coolOffUntil">
+  ): Promise<OrgRecord>;
   listApprovedOrgs(): Promise<OrgRecord[]>;
   listPendingOrgs(): Promise<OrgRecord[]>;
+  listPendingOrgsForReview(orgId: string): Promise<OrgRecord[]>;
+  listRejectedOrgs(): Promise<OrgRecord[]>;
+  getOrgById(orgId: string): Promise<OrgRecord | null>;
+  listOrgReviewViewsByStatus(status: OrgStatus): Promise<OrgReviewView[]>;
+  setOrgAccessState(
+    orgId: string,
+    accessState: OrgAccessState,
+    reason: string,
+    coolOffUntil?: string | null
+  ): Promise<OrgRecord | null>;
   decideOrg(orgId: string, decision: "approve" | "reject", reason: string): Promise<OrgRecord | null>;
   markOrgChainRegistered(orgId: string, txHash: string): Promise<void>;
   createOrgAdmin(orgId: string, email: string, password: string): Promise<UserRecord>;
@@ -76,6 +106,9 @@ export interface Store {
   recordCertificateVote(input: Omit<CertVoteRecord, "voteId" | "createdAt">): Promise<CertVoteRecord>;
   listCertificateVotes(certUuid: string): Promise<CertVoteRecord[]>;
   listVotesByReviewerOrg(orgId: string): Promise<CertVoteRecord[]>;
+  recordOrgVote(input: Omit<OrgVoteRecord, "voteId" | "createdAt">): Promise<OrgVoteRecord>;
+  listOrgVotes(orgId: string): Promise<OrgVoteRecord[]>;
+  listOrgVotesByReviewerOrg(orgId: string): Promise<OrgVoteRecord[]>;
   updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">): Promise<void>;
   revokeCertificate(certUuid: string, reason: string): Promise<CertRecord | null>;
 }
@@ -85,6 +118,7 @@ class MemoryStore implements Store {
   private orgs = new Map<string, OrgRecord>();
   private certs = new Map<string, CertRecord>();
   private votes = new Map<string, CertVoteRecord>();
+  private orgVotes = new Map<string, OrgVoteRecord>();
 
   async initialize() {}
 
@@ -109,8 +143,18 @@ class MemoryStore implements Store {
     return user;
   }
 
-  async createOrgApplication(input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash">) {
-    const org: OrgRecord = { ...input, status: "pending_review", reviewReason: null, chainTxHash: null };
+  async createOrgApplication(
+    input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash" | "accessState" | "accessReason" | "coolOffUntil">
+  ) {
+    const org: OrgRecord = {
+      ...input,
+      status: "pending_review",
+      reviewReason: null,
+      chainTxHash: null,
+      accessState: "active",
+      accessReason: null,
+      coolOffUntil: null
+    };
     this.orgs.set(org.orgId, org);
     return org;
   }
@@ -123,11 +167,48 @@ class MemoryStore implements Store {
     return [...this.orgs.values()].filter((o) => o.status === "approved");
   }
 
+  async listRejectedOrgs() {
+    return [...this.orgs.values()].filter((o) => o.status === "rejected");
+  }
+
+  async listPendingOrgsForReview(orgId: string) {
+    const votedOrgIds = new Set(
+      [...this.orgVotes.values()].filter((v) => v.reviewerOrgId === orgId).map((v) => v.orgId)
+    );
+    return [...this.orgs.values()].filter(
+      (o) => o.orgId !== orgId && o.status === "pending_review" && !votedOrgIds.has(o.orgId)
+    );
+  }
+
+  async getOrgById(orgId: string) {
+    return this.orgs.get(orgId) ?? null;
+  }
+
+  async listOrgReviewViewsByStatus(status: OrgStatus) {
+    const orgs = [...this.orgs.values()].filter((o) => o.status === status);
+    return orgs.map((org) => {
+      const admin =
+        [...this.users.values()].find((u) => u.role === "org_admin" && u.orgId === org.orgId)?.email ?? null;
+      const certificateCount = [...this.certs.values()].filter((c) => c.orgId === org.orgId).length;
+      return { ...org, adminEmail: admin, certificateCount };
+    });
+  }
+
   async decideOrg(orgId: string, decision: "approve" | "reject", reason: string) {
     const org = this.orgs.get(orgId);
     if (!org) return null;
     org.status = decision === "approve" ? "approved" : "rejected";
     org.reviewReason = reason;
+    this.orgs.set(orgId, org);
+    return org;
+  }
+
+  async setOrgAccessState(orgId: string, accessState: OrgAccessState, reason: string, coolOffUntil?: string | null) {
+    const org = this.orgs.get(orgId);
+    if (!org) return null;
+    org.accessState = accessState;
+    org.accessReason = reason;
+    org.coolOffUntil = accessState === "cooloff" ? coolOffUntil ?? null : null;
     this.orgs.set(orgId, org);
     return org;
   }
@@ -155,7 +236,7 @@ class MemoryStore implements Store {
   }
 
   async createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">) {
-    const cert: CertRecord = { ...input, status: "pending_approval", revokedAt: null, revokeReason: null };
+    const cert: CertRecord = { ...input, status: "verified", revokedAt: null, revokeReason: null };
     this.certs.set(cert.certUuid, cert);
     return cert;
   }
@@ -223,6 +304,27 @@ class MemoryStore implements Store {
     return [...this.votes.values()].filter((v) => v.reviewerOrgId === orgId);
   }
 
+  async recordOrgVote(input: Omit<OrgVoteRecord, "voteId" | "createdAt">) {
+    const vote: OrgVoteRecord = {
+      voteId: crypto.randomUUID(),
+      orgId: input.orgId,
+      reviewerOrgId: input.reviewerOrgId,
+      decision: input.decision,
+      reason: input.reason,
+      createdAt: new Date().toISOString()
+    };
+    this.orgVotes.set(vote.voteId, vote);
+    return vote;
+  }
+
+  async listOrgVotes(orgId: string) {
+    return [...this.orgVotes.values()].filter((v) => v.orgId === orgId);
+  }
+
+  async listOrgVotesByReviewerOrg(orgId: string) {
+    return [...this.orgVotes.values()].filter((v) => v.reviewerOrgId === orgId);
+  }
+
   async updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">) {
     const cert = this.certs.get(certUuid);
     if (!cert) return;
@@ -263,7 +365,10 @@ class PostgresStore implements Store {
         domain TEXT NOT NULL,
         status TEXT NOT NULL,
         review_reason TEXT NULL,
-        chain_tx_hash TEXT NULL
+        chain_tx_hash TEXT NULL,
+        access_state TEXT NOT NULL DEFAULT 'active',
+        access_reason TEXT NULL,
+        cool_off_until TEXT NULL
       );
       CREATE TABLE IF NOT EXISTS certificates (
         cert_uuid UUID PRIMARY KEY,
@@ -289,9 +394,20 @@ class PostgresStore implements Store {
         reason TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS org_registration_votes (
+        vote_id UUID PRIMARY KEY,
+        org_id TEXT NOT NULL,
+        reviewer_org_id TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
     await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS manifest_digest TEXT NOT NULL DEFAULT ''`);
     await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS ipfs_cid TEXT NULL`);
+    await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS access_state TEXT NOT NULL DEFAULT 'active'`);
+    await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS access_reason TEXT NULL`);
+    await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS cool_off_until TEXT NULL`);
   }
 
   async createSuperAdmin(email: string, password: string) {
@@ -314,14 +430,24 @@ class PostgresStore implements Store {
     return user;
   }
 
-  async createOrgApplication(input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash">) {
+  async createOrgApplication(
+    input: Omit<OrgRecord, "status" | "reviewReason" | "chainTxHash" | "accessState" | "accessReason" | "coolOffUntil">
+  ) {
     const status: OrgStatus = "pending_review";
     await this.pool.query(
-      `INSERT INTO organizations (org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [input.orgId, input.name, input.city, input.orgType, input.sector, input.domain, status, null, null]
+      `INSERT INTO organizations (org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [input.orgId, input.name, input.city, input.orgType, input.sector, input.domain, status, null, null, "active", null, null]
     );
-    return { ...input, status, reviewReason: null, chainTxHash: null };
+    return {
+      ...input,
+      status,
+      reviewReason: null,
+      chainTxHash: null,
+      accessState: "active" as OrgAccessState,
+      accessReason: null,
+      coolOffUntil: null
+    };
   }
 
   async listPendingOrgs() {
@@ -337,13 +463,64 @@ class PostgresStore implements Store {
       domain: r.domain,
       status: r.status,
       reviewReason: r.review_reason,
-      chainTxHash: r.chain_tx_hash
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
     })) as OrgRecord[];
   }
 
   async listApprovedOrgs() {
     const result = await this.pool.query(
       "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash FROM organizations WHERE status='approved'"
+    );
+    return result.rows.map((r) => ({
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
+    })) as OrgRecord[];
+  }
+
+  async listRejectedOrgs() {
+    const result = await this.pool.query(
+      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='rejected'"
+    );
+    return result.rows.map((r) => ({
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
+    })) as OrgRecord[];
+  }
+
+  async listPendingOrgsForReview(orgId: string) {
+    const result = await this.pool.query(
+      `SELECT o.org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash
+       FROM organizations o
+       WHERE o.status='pending_review'
+         AND o.org_id <> $1
+         AND NOT EXISTS (
+           SELECT 1 FROM org_registration_votes v
+           WHERE v.org_id = o.org_id AND v.reviewer_org_id = $1
+         )`,
+      [orgId]
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,
@@ -376,7 +553,88 @@ class PostgresStore implements Store {
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash
+      ,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
     };
+  }
+
+  async getOrgById(orgId: string) {
+    const result = await this.pool.query(
+      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE org_id=$1 LIMIT 1",
+      [orgId]
+    );
+    if (!result.rowCount) return null;
+    const r = result.rows[0];
+    return {
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
+    } as OrgRecord;
+  }
+
+  async listOrgReviewViewsByStatus(status: OrgStatus) {
+    const result = await this.pool.query(
+      `SELECT o.org_id,o.name,o.city,o.org_type,o.sector,o.domain,o.status,o.review_reason,o.chain_tx_hash,o.access_state,o.access_reason,o.cool_off_until,
+              (SELECT u.email FROM users u WHERE u.role='org_admin' AND u.org_id=o.org_id ORDER BY u.user_id ASC LIMIT 1) AS admin_email,
+              (SELECT COUNT(1) FROM certificates c WHERE c.org_id=o.org_id) AS certificate_count
+       FROM organizations o
+       WHERE o.status=$1
+       ORDER BY o.name ASC`,
+      [status]
+    );
+    return result.rows.map((r) => ({
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until,
+      adminEmail: r.admin_email ?? null,
+      certificateCount: Number(r.certificate_count ?? 0)
+    })) as OrgReviewView[];
+  }
+
+  async setOrgAccessState(orgId: string, accessState: OrgAccessState, reason: string, coolOffUntil?: string | null) {
+    const result = await this.pool.query(
+      `UPDATE organizations
+       SET access_state=$1, access_reason=$2, cool_off_until=$3
+       WHERE org_id=$4
+       RETURNING org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until`,
+      [accessState, reason, accessState === "cooloff" ? (coolOffUntil ?? null) : null, orgId]
+    );
+    if (!result.rowCount) return null;
+    const r = result.rows[0];
+    return {
+      orgId: r.org_id,
+      name: r.name,
+      city: r.city,
+      orgType: r.org_type,
+      sector: r.sector,
+      domain: r.domain,
+      status: r.status,
+      reviewReason: r.review_reason,
+      chainTxHash: r.chain_tx_hash,
+      accessState: r.access_state,
+      accessReason: r.access_reason,
+      coolOffUntil: r.cool_off_until
+    } as OrgRecord;
   }
 
   async markOrgChainRegistered(orgId: string, txHash: string) {
@@ -406,7 +664,7 @@ class PostgresStore implements Store {
   }
 
   async createCertificate(input: Omit<CertRecord, "status" | "revokedAt" | "revokeReason">) {
-    const cert: CertRecord = { ...input, status: "pending_approval", revokedAt: null, revokeReason: null };
+    const cert: CertRecord = { ...input, status: "verified", revokedAt: null, revokeReason: null };
     await this.pool.query(
       `INSERT INTO certificates
        (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,manifest_digest,ipfs_cid,revoked_at,revoke_reason)
@@ -605,6 +863,53 @@ class PostgresStore implements Store {
       reason: v.reason,
       createdAt: v.created_at
     })) as CertVoteRecord[];
+  }
+
+  async recordOrgVote(input: Omit<OrgVoteRecord, "voteId" | "createdAt">) {
+    const vote: OrgVoteRecord = {
+      voteId: crypto.randomUUID(),
+      orgId: input.orgId,
+      reviewerOrgId: input.reviewerOrgId,
+      decision: input.decision,
+      reason: input.reason,
+      createdAt: new Date().toISOString()
+    };
+    await this.pool.query(
+      `INSERT INTO org_registration_votes (vote_id, org_id, reviewer_org_id, decision, reason, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [vote.voteId, vote.orgId, vote.reviewerOrgId, vote.decision, vote.reason, vote.createdAt]
+    );
+    return vote;
+  }
+
+  async listOrgVotes(orgId: string) {
+    const result = await this.pool.query(
+      "SELECT vote_id, org_id, reviewer_org_id, decision, reason, created_at FROM org_registration_votes WHERE org_id=$1 ORDER BY created_at ASC",
+      [orgId]
+    );
+    return result.rows.map((v) => ({
+      voteId: v.vote_id,
+      orgId: v.org_id,
+      reviewerOrgId: v.reviewer_org_id,
+      decision: v.decision,
+      reason: v.reason,
+      createdAt: v.created_at
+    })) as OrgVoteRecord[];
+  }
+
+  async listOrgVotesByReviewerOrg(orgId: string) {
+    const result = await this.pool.query(
+      "SELECT vote_id, org_id, reviewer_org_id, decision, reason, created_at FROM org_registration_votes WHERE reviewer_org_id=$1 ORDER BY created_at DESC",
+      [orgId]
+    );
+    return result.rows.map((v) => ({
+      voteId: v.vote_id,
+      orgId: v.org_id,
+      reviewerOrgId: v.reviewer_org_id,
+      decision: v.decision,
+      reason: v.reason,
+      createdAt: v.created_at
+    })) as OrgVoteRecord[];
   }
 
   async updateCertificateStatus(certUuid: string, status: Extract<CertStatus, "verified" | "denied">) {

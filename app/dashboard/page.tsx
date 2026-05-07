@@ -20,10 +20,33 @@ type Certificate = {
   };
 };
 
+type OrgReviewItem = {
+  orgId: string;
+  name: string;
+  city: string;
+  sector: string;
+  orgType: string;
+  status: string;
+  voteSummary: { approvals: number; denials: number; total: number };
+};
+type OrgStatusItem = {
+  orgId: string;
+  name: string;
+  city: string;
+  sector: string;
+  orgType: string;
+  status: string;
+  adminEmail: string | null;
+  chainTxHash: string | null;
+  certificateCount: number;
+  accessState: string;
+  accessReason: string | null;
+  coolOffUntil: string | null;
+};
+
 type VoteHistoryItem = {
-  certUuid: string;
-  certType: string;
-  issueDate: string | null;
+  orgId: string;
+  orgName: string;
   finalStatus: string;
   yourDecision: "approve" | "deny";
   reason: string;
@@ -36,8 +59,11 @@ export default function DashboardPage() {
   const [role, setRole] = useState("");
   const [orgId, setOrgId] = useState("");
   const [submittedItems, setSubmittedItems] = useState<Certificate[]>([]);
-  const [incomingItems, setIncomingItems] = useState<Certificate[]>([]);
+  const [incomingItems, setIncomingItems] = useState<OrgReviewItem[]>([]);
   const [voteHistory, setVoteHistory] = useState<VoteHistoryItem[]>([]);
+  const [pendingOrgs, setPendingOrgs] = useState<OrgStatusItem[]>([]);
+  const [approvedOrgs, setApprovedOrgs] = useState<OrgStatusItem[]>([]);
+  const [rejectedOrgs, setRejectedOrgs] = useState<OrgStatusItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [verifyResult, setVerifyResult] = useState<string>("");
@@ -97,19 +123,34 @@ export default function DashboardPage() {
   async function loadReviewWorkflows() {
     if (!token || role !== "org_admin") return;
     try {
-      const [incomingResponse, historyResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/certificates/review/incoming`, {
+      const [incomingResponse, historyResponse, pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/orgs/review/incoming`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch(`${API_BASE_URL}/api/certificates/review/history`, {
+        fetch(`${API_BASE_URL}/api/orgs/review/history`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/api/orgs/review/pending`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/api/orgs/review/approved`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/api/orgs/review/rejected`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       const incomingData = await incomingResponse.json();
       const historyData = await historyResponse.json();
+      const pendingData = await pendingResponse.json();
+      const approvedData = await approvedResponse.json();
+      const rejectedData = await rejectedResponse.json();
       if (incomingResponse.ok) setIncomingItems(incomingData.items || []);
       if (historyResponse.ok) setVoteHistory(historyData.items || []);
+      if (pendingResponse.ok) setPendingOrgs(pendingData.items || []);
+      if (approvedResponse.ok) setApprovedOrgs(approvedData.items || []);
+      if (rejectedResponse.ok) setRejectedOrgs(rejectedData.items || []);
     } catch {
       setNotice("Could not load approval workflows.");
     }
@@ -169,7 +210,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function submitVote(certUuid: string, decision: "approve" | "deny") {
+  async function submitVote(orgIdToReview: string, decision: "approve" | "deny") {
     if (!token) return;
     const reason = window.prompt(`Why do you ${decision} this certificate?`, "");
     if (!reason || reason.trim().length < 3) {
@@ -177,7 +218,7 @@ export default function DashboardPage() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/certificates/${certUuid}/vote`, {
+      const response = await fetch(`${API_BASE_URL}/api/orgs/${orgIdToReview}/vote`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -190,9 +231,7 @@ export default function DashboardPage() {
         setNotice("Vote failed. This certificate may already be decided or already reviewed by you.");
         return;
       }
-      setNotice(
-        `Vote saved. Status: ${data.status}. Approvals ${data.voteSummary.approvals}/${data.voteSummary.requiredMajority}.`
-      );
+      setNotice(`Vote saved. Org status: ${data.status}. Approvals ${data.voteSummary.approvals}/${data.voteSummary.requiredMajority}.`);
       await Promise.all([loadCertificates(), loadReviewWorkflows()]);
     } catch {
       setNotice("Vote failed due to network/backend error.");
@@ -275,21 +314,6 @@ export default function DashboardPage() {
           {role === "org_admin" ? (
             <div style={{ marginTop: "12px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button
-                onClick={() => setSubmittedFilter("pending_approval")}
-                style={{
-                  padding: "8px 12px",
-                  border: "1px solid rgba(55,48,163,0.35)",
-                  background: submittedFilter === "pending_approval" ? "#e0e7ff" : "#f8f9ff",
-                  color: "#3730a3",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.16em"
-                }}
-              >
-                My Pending: {pendingSubmittedCount}
-              </button>
-              <button
                 onClick={() => setSubmittedFilter("all")}
                 style={{
                   padding: "8px 12px",
@@ -332,7 +356,7 @@ export default function DashboardPage() {
                 <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                 <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                 <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
-                <input value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                <input type="date" value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                 <input type="date" value={issueForm.issueDate} onChange={(e) => setIssueForm((p) => ({ ...p, issueDate: e.target.value }))} required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                 <button type="submit" style={{ padding: "12px 14px", background: "#f8fafc", color: "#020617", border: "2px solid #f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "11px" }}>
                   Issue Certificate
@@ -344,7 +368,7 @@ export default function DashboardPage() {
               <p style={{ margin: "0 0 6px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Super Admin</p>
               <h2 style={{ margin: "0 0 10px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Organization tools</h2>
               <p style={{ margin: 0, color: "#cbd5e1", fontSize: "14px", lineHeight: 1.5 }}>
-                Certificate issuance is limited to organization accounts. Use the ledger below for a global view; approve new organizations from the admin flows as needed.
+                Certificate issuance is limited to approved organization accounts. Registration approvals now run through org-majority voting.
               </p>
             </article>
           )}
@@ -400,7 +424,6 @@ export default function DashboardPage() {
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Type</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Issue Date</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Status</th>
-                    <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Votes</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Identifier</th>
                   </tr>
                 </thead>
@@ -422,11 +445,6 @@ export default function DashboardPage() {
                             {item.status}
                           </span>
                         </td>
-                        <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>
-                          {item.voteSummary
-                            ? `${item.voteSummary.approvals} approve / ${item.voteSummary.denials} deny`
-                            : "0 approve / 0 deny"}
-                        </td>
                         <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>{item.identifierMasked}</td>
                       </tr>
                     );
@@ -439,52 +457,39 @@ export default function DashboardPage() {
         </section>
 
         {role === "org_admin" ? (
-          <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "16px" }}>
-            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
-              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Incoming Queue</p>
-              <h2 style={{ margin: "0 0 12px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Pending Reviews</h2>
-              {incomingItems.length === 0 ? <p style={{ color: "#cbd5e1" }}>No incoming certificates to review.</p> : null}
-              <div style={{ display: "grid", gap: "10px" }}>
-                {incomingItems.map((item) => (
-                  <div key={item.certUuid} style={{ border: "1px solid #334155", padding: "12px", background: "#0f172a" }}>
-                    <p style={{ margin: "0 0 6px", fontSize: "12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                      {item.certUuid.slice(0, 8)}...{item.certUuid.slice(-6)}
-                    </p>
-                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>
-                      {item.certType} | {item.issueDate} | {item.identifierMasked}
-                    </p>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button onClick={() => void submitVote(item.certUuid, "approve")} style={{ padding: "8px 10px", background: "#166534", color: "#fff", border: "none", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700 }}>
-                        Approve
-                      </button>
-                      <button onClick={() => void submitVote(item.certUuid, "deny")} style={{ padding: "8px 10px", background: "#9f1239", color: "#fff", border: "none", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700 }}>
-                        Deny
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
-              <p style={{ margin: "0 0 4px", fontSize: "10px", letterSpacing: "0.28em", textTransform: "uppercase", color: "#94a3b8", fontWeight: 700 }}>Your Approval History</p>
-              <h2 style={{ margin: "0 0 12px", fontSize: "28px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>Approved / Denied by You</h2>
-              {voteHistory.length === 0 ? <p style={{ color: "#cbd5e1" }}>No review history yet.</p> : null}
-              <div style={{ display: "grid", gap: "10px" }}>
-                {voteHistory.map((item) => (
-                  <div key={`${item.certUuid}-${item.decidedAt}`} style={{ border: "1px solid #334155", padding: "12px", background: "#0f172a" }}>
-                    <p style={{ margin: "0 0 6px", fontSize: "12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                      {item.certUuid.slice(0, 8)}...{item.certUuid.slice(-6)}
-                    </p>
-                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>
-                      You: {item.yourDecision.toUpperCase()} | Final: {item.finalStatus.toUpperCase()}
-                    </p>
-                    <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>{item.certType}</p>
-                    <p style={{ margin: 0, color: "#e2e8f0", fontSize: "12px" }}>{item.reason}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
+          <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: "16px" }}>
+            {[
+              { title: "Pending Approvals", items: pendingOrgs, tone: "#e0e7ff", text: "#3730a3" },
+              { title: "Approved Orgs", items: approvedOrgs, tone: "#dcfce7", text: "#166534" },
+              { title: "Denied Orgs", items: rejectedOrgs, tone: "#ffe4e6", text: "#9f1239" }
+            ].map((bucket) => (
+              <article key={bucket.title} style={{ background: "#0b1220", border: "3px solid #f8fafc", borderRadius: "0px", padding: "22px 22px", boxShadow: "12px 12px 0 #1e293b" }}>
+                <h2 style={{ margin: "0 0 12px", fontSize: "24px", fontFamily: "Space Grotesk, Inter, sans-serif", letterSpacing: "-0.03em" }}>{bucket.title}</h2>
+                {bucket.items.length === 0 ? <p style={{ color: "#cbd5e1" }}>No organizations.</p> : null}
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {bucket.items.map((item) => {
+                    const canVote = incomingItems.some((x) => x.orgId === item.orgId);
+                    return (
+                      <div key={item.orgId} style={{ border: "1px solid #334155", padding: "12px", background: "#0f172a" }}>
+                        <p style={{ margin: "0 0 6px", fontSize: "12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>Reg ID: {item.orgId}</p>
+                        <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>{item.name} | {item.city} | {item.orgType} | {item.sector}</p>
+                        <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>Admin: {item.adminEmail ?? "N/A"} | Certs: {item.certificateCount}</p>
+                        <p style={{ margin: "0 0 6px", color: "#cbd5e1", fontSize: "12px" }}>Chain Verification: {item.chainTxHash ?? "Pending"}</p>
+                        <p style={{ margin: "0 0 6px", color: bucket.text, background: bucket.tone, display: "inline-block", padding: "3px 8px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                          Access: {item.accessState}
+                        </p>
+                        {canVote ? (
+                          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                            <button onClick={() => void submitVote(item.orgId, "approve")} style={{ padding: "8px 10px", background: "#166534", color: "#fff", border: "none", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700 }}>Approve</button>
+                            <button onClick={() => void submitVote(item.orgId, "deny")} style={{ padding: "8px 10px", background: "#9f1239", color: "#fff", border: "none", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700 }}>Deny</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
           </section>
         ) : null}
       </div>

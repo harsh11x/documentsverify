@@ -101,9 +101,14 @@ const revokeSchema = z.object({
   reason: z.string().min(3)
 });
 
-const certVoteSchema = z.object({
+const reviewDecisionSchema = z.object({
   decision: z.enum(["approve", "deny"]),
   reason: z.string().min(3)
+});
+const orgAccessSchema = z.object({
+  action: z.enum(["block", "cooloff", "restore"]),
+  reason: z.string().min(3),
+  coolOffDays: z.number().int().positive().max(365).optional()
 });
 
 const publicLookupSchema = z.object({
@@ -294,7 +299,7 @@ export function createApp() {
   }
 
   function requireRole(roles: Role[]) {
-    return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const token = getBearerToken(req.header("authorization"));
       if (!token) return res.status(401).json({ error: "missing_token" });
       try {
@@ -306,6 +311,18 @@ export function createApp() {
         };
         if (!roles.includes(decoded.role)) {
           return res.status(403).json({ error: "forbidden" });
+        }
+        if (decoded.role === "org_admin" && decoded.orgId) {
+          const org = await store.getOrgById(decoded.orgId);
+          if (!org) return res.status(403).json({ error: "org_not_found" });
+          if (org.status !== "approved") return res.status(403).json({ error: "org_not_approved" });
+          if (org.accessState === "blocked") return res.status(403).json({ error: "org_blocked" });
+          if (org.accessState === "cooloff") {
+            const coolOffUntilMs = org.coolOffUntil ? Date.parse(org.coolOffUntil) : NaN;
+            if (!Number.isNaN(coolOffUntilMs) && coolOffUntilMs > Date.now()) {
+              return res.status(403).json({ error: "org_in_cooloff", coolOffUntil: org.coolOffUntil });
+            }
+          }
         }
         (req as express.Request & { user: typeof decoded }).user = decoded;
         return next();
@@ -356,7 +373,7 @@ export function createApp() {
   });
 
   app.get("/api/certificates/mine", requireRole(["org_admin"]), async (req, res) => {
-    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
     const certificates = await store.listCertificatesByOrg(user.orgId);
     const items = await toCertificateListItems(store, certificates);
@@ -385,29 +402,36 @@ export function createApp() {
     });
   });
 
-  app.post("/api/super-admin/orgs/:orgId/decision", requireRole(["super_admin"]), async (req, res) => {
-    const parsed = orgDecisionSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const org = await store.decideOrg(req.params.orgId, parsed.data.decision, parsed.data.reason);
-    if (!org) return res.status(404).json({ error: "org_not_found" });
+  app.post("/api/super-admin/orgs/:orgId/decision", requireRole(["super_admin"]), async (_req, res) => {
+    return res.status(410).json({
+      error: "manual_org_decision_retired",
+      message: "Organization approval now happens via registered-node majority voting."
+    });
+  });
 
-    let orgAdminCredentials: { email: string; tempPassword: string } | null = null;
-    if (parsed.data.decision === "approve") {
-      const tempPassword = `Temp#${crypto.randomUUID().slice(0, 8)}`;
-      const email = `admin+${org.orgId}@${env.ORG_ADMIN_EMAIL_DOMAIN}`;
-      await store.createOrgAdmin(org.orgId, email, tempPassword);
-      orgAdminCredentials = { email, tempPassword };
-      await enqueueChainJob("org-register", { orgId: org.orgId });
-    }
-    return res.json({ org, orgAdminCredentials });
+  app.post("/api/super-admin/orgs/:orgId/access", requireRole(["super_admin"]), async (req, res) => {
+    const parsed = orgAccessSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const accessState = parsed.data.action === "block" ? "blocked" : parsed.data.action === "cooloff" ? "cooloff" : "active";
+    const coolOffUntil =
+      parsed.data.action === "cooloff"
+        ? new Date(Date.now() + (parsed.data.coolOffDays ?? 7) * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+    const org = await store.setOrgAccessState(req.params.orgId, accessState, parsed.data.reason, coolOffUntil);
+    if (!org) return res.status(404).json({ error: "org_not_found" });
+    return res.json({ org });
   });
 
   app.post("/api/certificates/issue", requireRole(["org_admin"]), async (req, res) => {
     const parsed = issueSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
     if (user.orgId !== parsed.data.orgId) return res.status(403).json({ error: "issuer_org_mismatch" });
+    const approvedOrgs = await store.listApprovedOrgs();
+    if (!approvedOrgs.some((org) => org.orgId === user.orgId)) {
+      return res.status(403).json({ error: "org_not_approved" });
+    }
     const certUuid = crypto.randomUUID();
     const certHash = stableCertHash(parsed.data.orgId, parsed.data.certType, parsed.data.identifierValue);
     const identifierMasked =
@@ -441,6 +465,14 @@ export function createApp() {
       manifestDigest,
       ipfsCid
     });
+    await enqueueChainJob("certificate-issue", {
+      certUuid: cert.certUuid,
+      orgId: cert.orgId,
+      certHash: cert.certHash,
+      certType: cert.certType,
+      manifestDigest: cert.manifestDigest,
+      ipfsCid: cert.ipfsCid
+    });
     return res.status(201).json({
       certUuid: cert.certUuid,
       certHash: cert.certHash,
@@ -451,33 +483,43 @@ export function createApp() {
     });
   });
 
-  app.get("/api/certificates/review/incoming", requireRole(["org_admin"]), async (req, res) => {
-    const user = (req as express.Request & { user: { orgId: string | null } }).user;
-    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
-    const items = await store.listCertificatesForReview(user.orgId);
+  app.get("/api/orgs/review/incoming", requireRole(["org_admin", "super_admin"]), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
+    const reviewerId = user.role === "super_admin" ? "__super_admin__" : user.orgId;
+    if (!reviewerId) return res.status(400).json({ error: "org_context_missing" });
+    const items = await store.listPendingOrgsForReview(reviewerId);
     return res.json({
-      items: items.map((cert) => ({
-        certUuid: cert.certUuid,
-        certType: cert.certType,
-        issueDate: cert.issueDate,
-        status: cert.status,
-        identifierMasked: cert.identifierMasked
+      items: await Promise.all(items.map(async (org) => {
+        const votes = await store.listOrgVotes(org.orgId);
+        const approvals = votes.filter((v) => v.decision === "approve").length;
+        const denials = votes.filter((v) => v.decision === "deny").length;
+        return {
+          orgId: org.orgId,
+          name: org.name,
+          city: org.city,
+          sector: org.sector,
+          orgType: org.orgType,
+          status: org.status,
+          voteSummary: { approvals, denials, total: votes.length }
+        };
       }))
     });
   });
 
-  app.get("/api/certificates/review/history", requireRole(["org_admin"]), async (req, res) => {
-    const user = (req as express.Request & { user: { orgId: string | null } }).user;
-    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
-    const votes = await store.listVotesByReviewerOrg(user.orgId);
+  app.get("/api/orgs/review/history", requireRole(["org_admin", "super_admin"]), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
+    const reviewerId = user.role === "super_admin" ? "__super_admin__" : user.orgId;
+    if (!reviewerId) return res.status(400).json({ error: "org_context_missing" });
+    const votes = await store.listOrgVotesByReviewerOrg(reviewerId);
     const items = await Promise.all(
       votes.map(async (vote) => {
-        const cert = await store.findCertificateByUuid(vote.certUuid);
+        const pending = await store.listPendingOrgs();
+        const approved = await store.listApprovedOrgs();
+        const org = [...pending, ...approved].find((item) => item.orgId === vote.orgId) ?? null;
         return {
-          certUuid: vote.certUuid,
-          certType: cert?.certType ?? "Unknown",
-          issueDate: cert?.issueDate ?? null,
-          finalStatus: cert?.status ?? "unknown",
+          orgId: vote.orgId,
+          orgName: org?.name ?? "Unknown",
+          finalStatus: org?.status ?? "rejected",
           yourDecision: vote.decision,
           reason: vote.reason,
           decidedAt: vote.createdAt
@@ -487,55 +529,50 @@ export function createApp() {
     return res.json({ items });
   });
 
-  app.post("/api/certificates/:certUuid/vote", requireRole(["org_admin"]), async (req, res) => {
-    const parsed = certVoteSchema.safeParse(req.body);
+  app.post("/api/orgs/:orgId/vote", requireRole(["org_admin", "super_admin"]), async (req, res) => {
+    const parsed = reviewDecisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const user = (req as express.Request & { user: { orgId: string | null } }).user;
-    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
+    const reviewerId = user.role === "super_admin" ? "__super_admin__" : user.orgId;
+    if (!reviewerId) return res.status(400).json({ error: "org_context_missing" });
+    if (req.params.orgId === reviewerId) return res.status(403).json({ error: "self_review_not_allowed" });
+    const pending = await store.listPendingOrgs();
+    const targetOrg = pending.find((org) => org.orgId === req.params.orgId);
+    if (!targetOrg) return res.status(404).json({ error: "org_not_pending_review" });
+    const approvedOrgs = await store.listApprovedOrgs();
+    const eligibleReviewerOrgIds = approvedOrgs.map((org) => org.orgId).filter((id) => id !== req.params.orgId);
+    const votingNodes = new Set<string>(["__super_admin__", ...eligibleReviewerOrgIds]);
+    if (!votingNodes.has(reviewerId)) return res.status(403).json({ error: "not_eligible_reviewer" });
 
-    const cert = await store.findCertificateByUuid(req.params.certUuid);
-    if (!cert) return res.status(404).json({ error: "certificate_not_found" });
-    if (cert.orgId === user.orgId) return res.status(403).json({ error: "self_review_not_allowed" });
-    if (cert.status !== "pending_approval") return res.status(409).json({ error: "certificate_already_decided" });
-    const eligibleReviewerOrgIds = await store.listEligibleReviewerOrgIds(cert.orgId);
-    if (!eligibleReviewerOrgIds.includes(user.orgId)) return res.status(403).json({ error: "not_eligible_reviewer" });
-
-    const existingVotes = await store.listCertificateVotes(cert.certUuid);
-    if (existingVotes.some((vote) => vote.reviewerOrgId === user.orgId)) {
+    const existingVotes = await store.listOrgVotes(req.params.orgId);
+    if (existingVotes.some((vote) => vote.reviewerOrgId === reviewerId)) {
       return res.status(409).json({ error: "already_voted" });
     }
 
-    await store.recordCertificateVote({
-      certUuid: cert.certUuid,
-      reviewerOrgId: user.orgId,
+    await store.recordOrgVote({
+      orgId: req.params.orgId,
+      reviewerOrgId: reviewerId,
       decision: parsed.data.decision,
       reason: parsed.data.reason
     });
 
-    const votes = await store.listCertificateVotes(cert.certUuid);
-    const requiredMajority = Math.floor(eligibleReviewerOrgIds.length / 2) + 1;
+    const votes = await store.listOrgVotes(req.params.orgId);
+    const requiredMajority = Math.floor(votingNodes.size / 2) + 1;
     const approvals = votes.filter((vote) => vote.decision === "approve").length;
     const denials = votes.filter((vote) => vote.decision === "deny").length;
 
-    let finalStatus: "pending_approval" | "verified" | "denied" = "pending_approval";
+    let finalStatus: "pending_review" | "approved" | "rejected" = "pending_review";
     if (requiredMajority > 0 && approvals >= requiredMajority) {
-      finalStatus = "verified";
-      await store.updateCertificateStatus(cert.certUuid, "verified");
-      await enqueueChainJob("certificate-issue", {
-        certUuid: cert.certUuid,
-        orgId: cert.orgId,
-        certHash: cert.certHash,
-        certType: cert.certType,
-        manifestDigest: cert.manifestDigest,
-        ipfsCid: cert.ipfsCid
-      });
+      finalStatus = "approved";
+      await store.decideOrg(req.params.orgId, "approve", "Approved by majority org vote");
+      await enqueueChainJob("org-register", { orgId: req.params.orgId });
     } else if (requiredMajority > 0 && denials >= requiredMajority) {
-      finalStatus = "denied";
-      await store.updateCertificateStatus(cert.certUuid, "denied");
+      finalStatus = "rejected";
+      await store.decideOrg(req.params.orgId, "reject", "Rejected by majority org vote");
     }
 
     return res.json({
-      certUuid: cert.certUuid,
+      orgId: req.params.orgId,
       status: finalStatus,
       voteSummary: {
         approvals,
@@ -544,6 +581,19 @@ export function createApp() {
         requiredMajority
       }
     });
+  });
+
+  app.get("/api/orgs/review/pending", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+    const items = await store.listOrgReviewViewsByStatus("pending_review");
+    return res.json({ items });
+  });
+  app.get("/api/orgs/review/approved", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+    const items = await store.listOrgReviewViewsByStatus("approved");
+    return res.json({ items });
+  });
+  app.get("/api/orgs/review/rejected", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+    const items = await store.listOrgReviewViewsByStatus("rejected");
+    return res.json({ items });
   });
 
   app.post("/api/certificates/revoke", requireRole(["org_admin", "super_admin"]), async (req, res) => {
