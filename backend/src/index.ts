@@ -1,6 +1,13 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 import { createApp } from "./app.js";
+
+// npm workspace commands run backend with cwd=`backend/`, while most setup keeps `.env` at repo root.
+// Load local backend/.env first, then fallback to ../.env when needed.
+loadEnv();
+if (!process.env.DATABASE_URL) {
+  loadEnv({ path: "../.env" });
+}
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
