@@ -99,6 +99,15 @@ function toBigIntValue(value: bigint | number | string | undefined): bigint | un
   return BigInt(value.toString());
 }
 
+/** Backend `stableCertHash` is 64 hex chars (SHA-256); Solidity expects bytes32 (32 bytes). */
+function toBytes32CertHash(certHash: string): `0x${string}` {
+  const normalized = certHash.startsWith("0x") ? certHash.slice(2) : certHash;
+  if (!/^[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error(`invalid_cert_hash_format expected_64_hex_got_len=${normalized.length}`);
+  }
+  return `0x${normalized.toLowerCase()}`;
+}
+
 async function submitEvmTx(jobName: string, payload: Record<string, unknown>): Promise<TxExecution> {
   const hasLiveConfig =
     process.env.RPC_URL &&
@@ -139,10 +148,11 @@ async function submitEvmTx(jobName: string, payload: Record<string, unknown>): P
   const digest = payload.manifestDigest ? String(payload.manifestDigest) : "";
   const metadataHash =
     digest.length === 64 && /^[0-9a-f]+$/i.test(digest) ? (`0x${digest}` as `0x${string}`) : ethers.id(String(payload.certUuid));
+  const branchId = payload.branchId ? String(payload.branchId) : "main-branch";
   const tx = await certRegistry.issueCertificate(
-    String(payload.certHash),
+    toBytes32CertHash(String(payload.certHash)),
     String(payload.orgId),
-    "default-branch",
+    branchId,
     String(payload.certType),
     metadataHash
   );
@@ -170,7 +180,7 @@ async function submitTx(jobName: string, payload: Record<string, unknown>): Prom
 }
 
 async function callback(path: string, body: Record<string, unknown>) {
-  await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -178,6 +188,10 @@ async function callback(path: string, body: Record<string, unknown>) {
     },
     body: JSON.stringify(body)
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`chain_callback_failed path=${path} status=${res.status} body=${text.slice(0, 500)}`);
+  }
 }
 
 const worker = new Worker(

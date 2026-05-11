@@ -623,6 +623,7 @@ export function createApp() {
     await enqueueChainJob("certificate-issue", {
       certUuid: cert.certUuid,
       orgId: cert.orgId,
+      branchId: parsed.data.branchId,
       certHash: cert.certHash,
       certType: cert.certType,
       manifestDigest: cert.manifestDigest,

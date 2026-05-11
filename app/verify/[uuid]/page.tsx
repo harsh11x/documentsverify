@@ -12,12 +12,28 @@ export default async function VerifyByUuidPage({ params }: { params: { uuid: str
         {!response.ok ? (
           <p style={{ color: "#fda4af" }}>Certificate not found.</p>
         ) : (
-          <ul style={{ color: "#cbd5e1", lineHeight: 1.8 }}>
+          <ul style={{ color: "#cbd5e1", lineHeight: 1.8, listStyle: "none", padding: 0 }}>
             <li>Status: {data?.status}</li>
             <li>Org: {data?.orgId}</li>
             <li>Type: {data?.certType}</li>
             <li>Issue Date: {data?.issueDate}</li>
             <li>Tx Hash: {data?.txHash || "N/A"}</li>
+            {typeof data?.manifestUri === "string" ? (
+              <li>
+                Manifest (IPFS):{" "}
+                <a href={data.manifestUri} style={{ color: "#38bdf8" }} target="_blank" rel="noreferrer">
+                  Open JSON
+                </a>
+              </li>
+            ) : null}
+            {typeof data?.presentationUri === "string" ? (
+              <li>
+                Branded certificate (PDF):{" "}
+                <a href={data.presentationUri} style={{ color: "#a78bfa" }} target="_blank" rel="noreferrer">
+                  Download / view
+                </a>
+              </li>
+            ) : null}
           </ul>
         )}
         <p>

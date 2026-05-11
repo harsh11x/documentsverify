@@ -34,6 +34,8 @@ DocVerifyBlock is a full-stack system for tamper-resistant certificate issuance 
 - `infra`: local infrastructure config (`docker-compose.yml` for Postgres, Redis, and **Kubo IPFS** for pinning certificate manifests).
 - `frontend`: build/cache artifacts directory (currently no active app source code).
 
+**Hardhat / Solidity:** Prefer Node 20 or 22 for contract work (see `.nvmrc`). Hardhat may warn on very new Node releases (for example 25+) that are not yet in their support matrix.
+
 ---
 
 ## System Architecture In Plain English
