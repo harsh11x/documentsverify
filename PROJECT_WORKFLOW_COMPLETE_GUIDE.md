@@ -236,7 +236,14 @@ Important: do not commit real secrets. Values below are categories and examples 
 - `FABRIC_CHAINCODE`
 
 ### 8.5 IPFS values
-- Optional `IPFS_PINATA_JWT` or `IPFS_KUBO_API_URL`
+
+Certificate issuance **requires** a successful manifest pin unless `IPFS_OPTIONAL_IN_DEV=true` in non-production (never in production). Set one of:
+
+- `IPFS_KUBO_API_URL` — local Kubo (e.g. `http://127.0.0.1:5001` after `npm run infra:up`, which includes the `ipfs` service).
+- `IPFS_PINATA_JWT` — Pinata `pinJSONToIPFS`.
+
+Vitest uses a deterministic synthetic CID when no provider is configured.
+
 - `IPFS_GATEWAY_PREFIX`
 
 ### 8.6 Frontend value

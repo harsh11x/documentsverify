@@ -452,7 +452,7 @@ class PostgresStore implements Store {
 
   async listPendingOrgs() {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash FROM organizations WHERE status='pending_review'"
+      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='pending_review'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,
@@ -472,7 +472,7 @@ class PostgresStore implements Store {
 
   async listApprovedOrgs() {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash FROM organizations WHERE status='approved'"
+      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='approved'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,

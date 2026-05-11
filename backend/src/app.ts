@@ -140,12 +140,27 @@ function ipfsGatewayUrl(prefix: string, cid: string | null): string | null {
   return `${base}/${cid}`;
 }
 
+async function orgRegistrationVoteProgress(store: Store, targetOrgId: string) {
+  const votes = await store.listOrgVotes(targetOrgId);
+  const approvedOrgs = await store.listApprovedOrgs();
+  const eligibleReviewerOrgIds = approvedOrgs.map((o) => o.orgId).filter((id) => id !== targetOrgId);
+  const votingNodes = new Set<string>(["__super_admin__", ...eligibleReviewerOrgIds]);
+  const requiredMajority = Math.floor(votingNodes.size / 2) + 1;
+  const approvals = votes.filter((v) => v.decision === "approve").length;
+  const denials = votes.filter((v) => v.decision === "deny").length;
+  return {
+    approvals,
+    denials,
+    total: votes.length,
+    requiredMajority,
+    eligibleVoterCount: votingNodes.size
+  };
+}
+
 /** Never expose ciphertext fields (holderNameEncrypted, holderDobEncrypted) in list APIs. */
-async function toCertificateListItems(store: Store, certificates: CertRecord[]) {
-  return Promise.all(
-    certificates.map(async (cert) => {
-      const votes = await store.listCertificateVotes(cert.certUuid);
-      return {
+async function toCertificateListItems(_store: Store, certificates: CertRecord[], gatewayPrefix: string) {
+  return certificates.map((cert) => {
+    return {
         certUuid: cert.certUuid,
         orgId: cert.orgId,
         certType: cert.certType,
@@ -156,16 +171,11 @@ async function toCertificateListItems(store: Store, certificates: CertRecord[]) 
         identifierMasked: cert.identifierMasked,
         manifestDigest: cert.manifestDigest,
         ipfsCid: cert.ipfsCid,
+        manifestUri: ipfsGatewayUrl(gatewayPrefix, cert.ipfsCid),
         revokedAt: cert.revokedAt,
-        revokeReason: cert.revokeReason,
-        voteSummary: {
-          approvals: votes.filter((v) => v.decision === "approve").length,
-          denials: votes.filter((v) => v.decision === "deny").length,
-          total: votes.length
-        }
+        revokeReason: cert.revokeReason
       };
-    })
-  );
+    });
 }
 
 function parseBootstrapOrgAccounts(source?: string): BootstrapOrgAccount[] {
@@ -298,7 +308,7 @@ export function createApp() {
     }
   }
 
-  function requireRole(roles: Role[]) {
+  function requireRole(roles: Role[], opts?: { allowNonApprovedOrgRead?: boolean }) {
     return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const token = getBearerToken(req.header("authorization"));
       if (!token) return res.status(401).json({ error: "missing_token" });
@@ -315,7 +325,9 @@ export function createApp() {
         if (decoded.role === "org_admin" && decoded.orgId) {
           const org = await store.getOrgById(decoded.orgId);
           if (!org) return res.status(403).json({ error: "org_not_found" });
-          if (org.status !== "approved") return res.status(403).json({ error: "org_not_approved" });
+          if (!opts?.allowNonApprovedOrgRead && org.status !== "approved") {
+            return res.status(403).json({ error: "org_not_approved" });
+          }
           if (org.accessState === "blocked") return res.status(403).json({ error: "org_blocked" });
           if (org.accessState === "cooloff") {
             const coolOffUntilMs = org.coolOffUntil ? Date.parse(org.coolOffUntil) : NaN;
@@ -372,17 +384,26 @@ export function createApp() {
     });
   });
 
-  app.get("/api/certificates/mine", requireRole(["org_admin"]), async (req, res) => {
+  app.get("/api/orgs/me", requireRole(["org_admin"], { allowNonApprovedOrgRead: true }), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const org = await store.getOrgById(user.orgId);
+    if (!org) return res.status(404).json({ error: "org_not_found" });
+    const voteSummary = await orgRegistrationVoteProgress(store, org.orgId);
+    return res.json({ org, voteSummary });
+  });
+
+  app.get("/api/certificates/mine", requireRole(["org_admin"], { allowNonApprovedOrgRead: true }), async (req, res) => {
     const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
     const certificates = await store.listCertificatesByOrg(user.orgId);
-    const items = await toCertificateListItems(store, certificates);
+    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX);
     return res.json({ items });
   });
 
   app.get("/api/certificates", requireRole(["super_admin"]), async (_req, res) => {
     const certificates = await store.listAllCertificates();
-    const items = await toCertificateListItems(store, certificates);
+    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX);
     return res.json({ items });
   });
 
@@ -451,7 +472,21 @@ export function createApp() {
     };
     const manifestDigest = sha256HexUtf8(canonicalJsonStringify(manifest));
     const ipfsResult = await uploadJsonToIpfs(manifest, `cert-${certUuid}.json`);
-    const ipfsCid = ipfsResult?.cid ?? null;
+    let ipfsCid = ipfsResult?.cid ?? null;
+    const ipfsOptionalDev =
+      process.env.IPFS_OPTIONAL_IN_DEV === "true" &&
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "test";
+    if (!ipfsCid && !ipfsOptionalDev) {
+      return res.status(503).json({
+        error: "ipfs_publish_failed",
+        message:
+          "Certificate manifest could not be pinned to IPFS. Run `npm run infra:up` (includes Kubo), set IPFS_KUBO_API_URL (e.g. http://127.0.0.1:5001), or set IPFS_PINATA_JWT. For local backend-only experiments you may set IPFS_OPTIONAL_IN_DEV=true."
+      });
+    }
+    if (!ipfsCid && ipfsOptionalDev) {
+      console.warn("[backend-api] certificate issue: IPFS_OPTIONAL_IN_DEV=true — storing manifest digest without ipfsCid");
+    }
     const cert = await store.createCertificate({
       certUuid,
       orgId: parsed.data.orgId,
@@ -483,7 +518,7 @@ export function createApp() {
     });
   });
 
-  app.get("/api/orgs/review/incoming", requireRole(["org_admin", "super_admin"]), async (req, res) => {
+  app.get("/api/orgs/review/incoming", requireRole(["org_admin", "super_admin"], { allowNonApprovedOrgRead: true }), async (req, res) => {
     const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     const reviewerId = user.role === "super_admin" ? "__super_admin__" : user.orgId;
     if (!reviewerId) return res.status(400).json({ error: "org_context_missing" });
@@ -506,7 +541,7 @@ export function createApp() {
     });
   });
 
-  app.get("/api/orgs/review/history", requireRole(["org_admin", "super_admin"]), async (req, res) => {
+  app.get("/api/orgs/review/history", requireRole(["org_admin", "super_admin"], { allowNonApprovedOrgRead: true }), async (req, res) => {
     const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     const reviewerId = user.role === "super_admin" ? "__super_admin__" : user.orgId;
     if (!reviewerId) return res.status(400).json({ error: "org_context_missing" });
@@ -583,17 +618,35 @@ export function createApp() {
     });
   });
 
-  app.get("/api/orgs/review/pending", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+  app.get("/api/orgs/review/pending", requireRole(["org_admin", "super_admin"], { allowNonApprovedOrgRead: true }), async (_req, res) => {
     const items = await store.listOrgReviewViewsByStatus("pending_review");
-    return res.json({ items });
+    const enriched = await Promise.all(
+      items.map(async (org) => ({
+        ...org,
+        voteSummary: await orgRegistrationVoteProgress(store, org.orgId)
+      }))
+    );
+    return res.json({ items: enriched });
   });
-  app.get("/api/orgs/review/approved", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+  app.get("/api/orgs/review/approved", requireRole(["org_admin", "super_admin"], { allowNonApprovedOrgRead: true }), async (_req, res) => {
     const items = await store.listOrgReviewViewsByStatus("approved");
-    return res.json({ items });
+    const enriched = await Promise.all(
+      items.map(async (org) => ({
+        ...org,
+        voteSummary: await orgRegistrationVoteProgress(store, org.orgId)
+      }))
+    );
+    return res.json({ items: enriched });
   });
-  app.get("/api/orgs/review/rejected", requireRole(["org_admin", "super_admin"]), async (_req, res) => {
+  app.get("/api/orgs/review/rejected", requireRole(["org_admin", "super_admin"], { allowNonApprovedOrgRead: true }), async (_req, res) => {
     const items = await store.listOrgReviewViewsByStatus("rejected");
-    return res.json({ items });
+    const enriched = await Promise.all(
+      items.map(async (org) => ({
+        ...org,
+        voteSummary: await orgRegistrationVoteProgress(store, org.orgId)
+      }))
+    );
+    return res.json({ items: enriched });
   });
 
   app.post("/api/certificates/revoke", requireRole(["org_admin", "super_admin"]), async (req, res) => {

@@ -31,7 +31,7 @@ DocVerifyBlock is a full-stack system for tamper-resistant certificate issuance 
   - `CertificateRegistry.sol`
 - `app`: main Next.js app (public-facing pages and dashboards).
 - `admin-panel`: separate Next.js admin app on port `3001`.
-- `infra`: local infrastructure config (`docker-compose.yml` for Postgres + Redis).
+- `infra`: local infrastructure config (`docker-compose.yml` for Postgres, Redis, and **Kubo IPFS** for pinning certificate manifests).
 - `frontend`: build/cache artifacts directory (currently no active app source code).
 
 ---
@@ -138,8 +138,9 @@ From repo root:
 
 1. Install dependencies:
    - `npm install`
-2. Start infra:
+2. Start infra (Postgres, Redis, **IPFS/Kubo** on `5001` for manifest pinning):
    - `npm run infra:up`
+   - Set `IPFS_KUBO_API_URL=http://127.0.0.1:5001` in `.env` (default in `.env.example`) so issued certificates pin manifests to IPFS. For backend-only dev without Kubo, set `IPFS_OPTIONAL_IN_DEV=true` (not for production).
 3. Run API + web apps:
    - `AES_256_KEY=12345678901234567890123456789012 npm run dev:all`
 4. Run full local stack (includes workers):

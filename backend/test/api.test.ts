@@ -33,6 +33,24 @@ async function approveOrgAsSuperAdmin(app: ReturnType<typeof createApp>, orgId: 
 }
 
 describe("backend-api", () => {
+  it("returns org self profile with registration vote progress", async () => {
+    const app = createApp();
+    const orgId = await registerOrg(app, "org-self-me");
+    const res = await request(app)
+      .get("/api/orgs/me")
+      .set("Authorization", `Bearer ${token("org_admin", orgId)}`);
+    expect(res.status).toBe(200);
+    expect(res.body.org.orgId).toBe(orgId);
+    expect(res.body.org.status).toBe("pending_review");
+    expect(res.body.voteSummary).toMatchObject({
+      approvals: 0,
+      denials: 0,
+      total: 0,
+      requiredMajority: expect.any(Number),
+      eligibleVoterCount: expect.any(Number)
+    });
+  });
+
   it("returns health status", async () => {
     const app = createApp();
     const res = await request(app).get("/health");
@@ -66,7 +84,6 @@ describe("backend-api", () => {
     const row = listRes.body.items[0];
     expect(row.holderNameEncrypted).toBeUndefined();
     expect(row.holderDobEncrypted).toBeUndefined();
-    expect(row.voteSummary).toEqual({ approvals: 0, denials: 0, total: 0 });
   });
 
   it("issues certificate directly without peer approval", async () => {
@@ -89,7 +106,7 @@ describe("backend-api", () => {
     expect(issueRes.body.certHash).toBeTruthy();
     expect(issueRes.body.status).toBe("verified");
     expect(issueRes.body.manifestDigest).toMatch(/^[a-f0-9]{64}$/);
-    expect(issueRes.body).toHaveProperty("ipfsCid");
+    expect(issueRes.body.ipfsCid).toMatch(/^Qm/);
 
     const verifyRes = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
     expect(verifyRes.status).toBe(200);

@@ -20,6 +20,19 @@ services:
     volumes:
       - redisdata:/data
 
+  # Local IPFS (Kubo) API for pinning certificate manifests. Set IPFS_KUBO_API_URL=http://127.0.0.1:5001 in .env
+  ipfs:
+    image: ipfs/kubo:v0.29.0
+    container_name: docverify_ipfs
+    ports:
+      - "5001:5001"
+      - "8081:8080"
+    volumes:
+      - ipfsdata:/data/ipfs
+    environment:
+      IPFS_PROFILE: server
+
 volumes:
   pgdata:
   redisdata:
+  ipfsdata:
