@@ -6,7 +6,12 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { z } from "zod";
 import { chainWriteQueue } from "./queues.js";
-import { uploadJsonToIpfs } from "./ipfs.js";
+import { uploadBufferToIpfs, uploadJsonToIpfs } from "./ipfs.js";
+import { buildCertificatePresentationPdf } from "./certificate-pdf.js";
+import {
+  isCertificateTypeAllowedForOrg,
+  getCertificateTypesForCategory
+} from "./certificate-types.js";
 import { canonicalJsonStringify, encryptPII, sha256HexUtf8, stableCertHash } from "./security.js";
 import { createStore, type CertRecord, type Store, Role } from "./store.js";
 
@@ -55,7 +60,8 @@ const envSchema = z.object({
   SUPER_ADMIN_EMAIL: z.string().email().optional(),
   SUPER_ADMIN_PASSWORD: z.string().min(8).optional(),
   BOOTSTRAP_ORG_ACCOUNTS: z.string().optional(),
-  IPFS_GATEWAY_PREFIX: z.string().default("https://ipfs.io/ipfs")
+  IPFS_GATEWAY_PREFIX: z.string().default("https://ipfs.io/ipfs"),
+  PUBLIC_APP_BASE_URL: z.string().optional()
 });
 
 const loginSchema = z.object({
@@ -70,6 +76,14 @@ const orgRegisterSchema = z.object({
   city: z.string().min(2),
   orgType: z.enum(["GOV", "PVT"]),
   sector: z.string().min(2),
+  organizationCategory: z.enum([
+    "education",
+    "healthcare",
+    "corporate",
+    "government",
+    "nonprofit",
+    "other"
+  ]),
   domain: z.string().min(2),
   adminEmail: z.string().email(),
   adminPassword: z.string().min(8).optional(),
@@ -85,16 +99,23 @@ const orgDecisionSchema = z.object({
   reason: z.string().min(3)
 });
 
-const issueSchema = z.object({
-  orgId: z.string().min(1),
-  branchId: z.string().min(1),
-  certType: z.string().min(1),
-  identifierType: z.string().min(1),
-  identifierValue: z.string().min(1),
-  holderName: z.string().min(1),
-  holderDob: z.string().min(1),
-  issueDate: z.string().min(1)
-});
+const issueSchema = z
+  .object({
+    orgId: z.string().min(1),
+    branchId: z.string().min(1),
+    certType: z.string().min(1),
+    identifierType: z.string().min(1),
+    identifierValue: z.string().min(1),
+    holderName: z.string().min(1),
+    holderDob: z.string().min(1),
+    issueDate: z.string().min(1),
+    sourceDocumentBase64: z.string().max(18_000_000).optional(),
+    sourceDocumentMimeType: z.enum(["application/pdf", "image/png", "image/jpeg"]).optional()
+  })
+  .refine((d) => !d.sourceDocumentBase64 || d.sourceDocumentMimeType, {
+    message: "sourceDocumentMimeType is required when sourceDocumentBase64 is set",
+    path: ["sourceDocumentMimeType"]
+  });
 
 const revokeSchema = z.object({
   certUuid: z.string().uuid(),
@@ -129,6 +150,19 @@ const chainTxMetaSchema = z.object({
   confirmations: z.number().int().nonnegative().optional()
 });
 
+function decodeBase64Flexible(value: string): Buffer | null {
+  try {
+    const trimmed = value.replace(/\s/g, "");
+    const normalized = trimmed.replace(/-/g, "+").replace(/_/g, "/");
+    const padLen = (4 - (normalized.length % 4)) % 4;
+    const padded = normalized + "=".repeat(padLen);
+    const buf = Buffer.from(padded, "base64");
+    return buf.length ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
 function getBearerToken(authHeader?: string): string | null {
   if (!authHeader?.startsWith("Bearer ")) return null;
   return authHeader.slice(7);
@@ -158,7 +192,13 @@ async function orgRegistrationVoteProgress(store: Store, targetOrgId: string) {
 }
 
 /** Never expose ciphertext fields (holderNameEncrypted, holderDobEncrypted) in list APIs. */
-async function toCertificateListItems(_store: Store, certificates: CertRecord[], gatewayPrefix: string) {
+async function toCertificateListItems(
+  _store: Store,
+  certificates: CertRecord[],
+  gatewayPrefix: string,
+  publicAppBaseUrl: string
+) {
+  const base = publicAppBaseUrl.replace(/\/$/, "");
   return certificates.map((cert) => {
     return {
         certUuid: cert.certUuid,
@@ -172,6 +212,10 @@ async function toCertificateListItems(_store: Store, certificates: CertRecord[],
         manifestDigest: cert.manifestDigest,
         ipfsCid: cert.ipfsCid,
         manifestUri: ipfsGatewayUrl(gatewayPrefix, cert.ipfsCid),
+        presentationIpfsCid: cert.presentationIpfsCid,
+        presentationUri: ipfsGatewayUrl(gatewayPrefix, cert.presentationIpfsCid),
+        verificationUrl: `${base}/verify/${cert.certUuid}`,
+        verifyPath: `/verify/${cert.certUuid}`,
         revokedAt: cert.revokedAt,
         revokeReason: cert.revokeReason
       };
@@ -210,7 +254,8 @@ async function seedBootstrapOrganizations(store: Store, accounts: BootstrapOrgAc
         city: account.city,
         orgType: "PVT",
         sector: "Education",
-        domain: account.domain
+        domain: account.domain,
+        organizationCategory: "education"
       });
       await store.decideOrg(account.orgId, "approve", "Bootstrap approved private education institute");
       knownOrgIds.add(account.orgId);
@@ -224,6 +269,7 @@ export function createApp() {
   const isProduction = process.env.NODE_ENV === "production";
   const env = {
     ...rawEnv,
+    PUBLIC_APP_BASE_URL: (rawEnv.PUBLIC_APP_BASE_URL?.trim().replace(/\/$/, "") || "http://localhost:3000") as string,
     JWT_ACCESS_SECRET: rawEnv.JWT_ACCESS_SECRET ?? "test_only_access_secret",
     CHAIN_WORKER_TOKEN: rawEnv.CHAIN_WORKER_TOKEN ?? "test_only_chain_worker_token",
     SUPER_ADMIN_EMAIL: rawEnv.SUPER_ADMIN_EMAIL ?? "admin@example.com",
@@ -275,7 +321,7 @@ export function createApp() {
       }
     })
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "20mb" }));
   app.use((req, res, next) => {
     res.setHeader("x-request-id", crypto.randomUUID());
     next();
@@ -371,7 +417,8 @@ export function createApp() {
       city: parsed.data.city,
       orgType: parsed.data.orgType,
       sector: parsed.data.sector,
-      domain: parsed.data.domain
+      domain: parsed.data.domain,
+      organizationCategory: parsed.data.organizationCategory
     });
     const adminPassword = parsed.data.adminPassword ?? `Temp#${crypto.randomUUID().slice(0, 8)}`;
     await store.createOrgAdmin(orgId, parsed.data.adminEmail, adminPassword);
@@ -397,13 +444,24 @@ export function createApp() {
     const user = (req as express.Request & { user: { orgId: string | null; role: Role } }).user;
     if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
     const certificates = await store.listCertificatesByOrg(user.orgId);
-    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX);
+    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX, env.PUBLIC_APP_BASE_URL);
     return res.json({ items });
+  });
+
+  app.get("/api/certificates/type-options", requireRole(["org_admin"], { allowNonApprovedOrgRead: true }), async (req, res) => {
+    const user = (req as express.Request & { user: { orgId: string | null } }).user;
+    if (!user.orgId) return res.status(400).json({ error: "org_context_missing" });
+    const org = await store.getOrgById(user.orgId);
+    if (!org) return res.status(404).json({ error: "org_not_found" });
+    return res.json({
+      organizationCategory: org.organizationCategory,
+      certificateTypes: getCertificateTypesForCategory(org.organizationCategory)
+    });
   });
 
   app.get("/api/certificates", requireRole(["super_admin"]), async (_req, res) => {
     const certificates = await store.listAllCertificates();
-    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX);
+    const items = await toCertificateListItems(store, certificates, env.IPFS_GATEWAY_PREFIX, env.PUBLIC_APP_BASE_URL);
     return res.json({ items });
   });
 
@@ -453,14 +511,69 @@ export function createApp() {
     if (!approvedOrgs.some((org) => org.orgId === user.orgId)) {
       return res.status(403).json({ error: "org_not_approved" });
     }
+    const issuerOrg = await store.getOrgById(user.orgId);
+    if (!issuerOrg) return res.status(404).json({ error: "org_not_found" });
+    if (!isCertificateTypeAllowedForOrg(issuerOrg.organizationCategory, parsed.data.certType)) {
+      return res.status(400).json({
+        error: "invalid_cert_type",
+        message: "Certificate type is not allowed for your organization's category. Use GET /api/certificates/type-options for allowed labels."
+      });
+    }
+
+    const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+    let sourceDocumentSha256Hex: string | null = null;
+    if (parsed.data.sourceDocumentBase64) {
+      const sourceBuf = decodeBase64Flexible(parsed.data.sourceDocumentBase64);
+      if (!sourceBuf) return res.status(400).json({ error: "invalid_source_document_base64" });
+      if (sourceBuf.length > MAX_SOURCE_BYTES) {
+        return res.status(413).json({ error: "source_document_too_large", maxBytes: MAX_SOURCE_BYTES });
+      }
+      sourceDocumentSha256Hex = crypto.createHash("sha256").update(sourceBuf).digest("hex");
+    }
+
     const certUuid = crypto.randomUUID();
     const certHash = stableCertHash(parsed.data.orgId, parsed.data.certType, parsed.data.identifierValue);
     const identifierMasked =
       parsed.data.identifierValue.length <= 4
         ? "****"
         : `${parsed.data.identifierValue.slice(0, 2)}****${parsed.data.identifierValue.slice(-2)}`;
-    const manifest = {
-      schema: "docverify-certificate-manifest/v1",
+    const verificationAbsoluteUrl = `${env.PUBLIC_APP_BASE_URL.replace(/\/$/, "")}/verify/${certUuid}`;
+
+    const ipfsOptionalDev =
+      process.env.IPFS_OPTIONAL_IN_DEV === "true" &&
+      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV !== "test";
+
+    let presentationIpfsCid: string | null = null;
+    try {
+      const pdfBuf = await buildCertificatePresentationPdf({
+        orgName: issuerOrg.name,
+        certType: parsed.data.certType,
+        holderName: parsed.data.holderName,
+        issueDate: parsed.data.issueDate,
+        certUuid,
+        certHashHex: certHash,
+        verificationAbsoluteUrl
+      });
+      const pres = await uploadBufferToIpfs(pdfBuf, `cert-${certUuid}-presentation.pdf`, "application/pdf");
+      presentationIpfsCid = pres?.cid ?? null;
+    } catch (e) {
+      console.error("[backend-api] certificate presentation PDF failed", e);
+      presentationIpfsCid = null;
+    }
+    if (!presentationIpfsCid && !ipfsOptionalDev) {
+      return res.status(503).json({
+        error: "ipfs_presentation_publish_failed",
+        message:
+          "Branded certificate PDF could not be pinned to IPFS. Run `npm run infra:up` (includes Kubo), set IPFS_KUBO_API_URL (e.g. http://127.0.0.1:5001), or set IPFS_PINATA_JWT. For local backend-only experiments you may set IPFS_OPTIONAL_IN_DEV=true."
+      });
+    }
+    if (!presentationIpfsCid && ipfsOptionalDev) {
+      console.warn("[backend-api] certificate issue: IPFS_OPTIONAL_IN_DEV=true — storing without presentationIpfsCid");
+    }
+
+    const manifest: Record<string, unknown> = {
+      schema: "docverify-certificate-manifest/v2",
       certUuid,
       orgId: parsed.data.orgId,
       branchId: parsed.data.branchId,
@@ -468,15 +581,20 @@ export function createApp() {
       identifierType: parsed.data.identifierType,
       certHash,
       issueDate: parsed.data.issueDate,
-      identifierMasked
+      identifierMasked,
+      verificationUrl: verificationAbsoluteUrl,
+      presentationIpfsCid
     };
+    if (sourceDocumentSha256Hex && parsed.data.sourceDocumentMimeType) {
+      manifest.sourceDocument = {
+        mimeType: parsed.data.sourceDocumentMimeType,
+        sha256Hex: sourceDocumentSha256Hex
+      };
+    }
+
     const manifestDigest = sha256HexUtf8(canonicalJsonStringify(manifest));
     const ipfsResult = await uploadJsonToIpfs(manifest, `cert-${certUuid}.json`);
     let ipfsCid = ipfsResult?.cid ?? null;
-    const ipfsOptionalDev =
-      process.env.IPFS_OPTIONAL_IN_DEV === "true" &&
-      process.env.NODE_ENV !== "production" &&
-      process.env.NODE_ENV !== "test";
     if (!ipfsCid && !ipfsOptionalDev) {
       return res.status(503).json({
         error: "ipfs_publish_failed",
@@ -487,6 +605,7 @@ export function createApp() {
     if (!ipfsCid && ipfsOptionalDev) {
       console.warn("[backend-api] certificate issue: IPFS_OPTIONAL_IN_DEV=true — storing manifest digest without ipfsCid");
     }
+
     const cert = await store.createCertificate({
       certUuid,
       orgId: parsed.data.orgId,
@@ -498,7 +617,8 @@ export function createApp() {
       holderDobEncrypted: encryptPII(parsed.data.holderDob),
       identifierMasked,
       manifestDigest,
-      ipfsCid
+      ipfsCid,
+      presentationIpfsCid
     });
     await enqueueChainJob("certificate-issue", {
       certUuid: cert.certUuid,
@@ -514,7 +634,12 @@ export function createApp() {
       status: cert.status,
       manifestDigest: cert.manifestDigest,
       ipfsCid: cert.ipfsCid,
-      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid)
+      manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+      presentationIpfsCid: cert.presentationIpfsCid,
+      presentationUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.presentationIpfsCid),
+      verificationUrl: verificationAbsoluteUrl,
+      verifyPath: `/verify/${cert.certUuid}`,
+      ...(sourceDocumentSha256Hex ? { sourceDocumentSha256Hex } : {})
     });
   });
 
@@ -666,6 +791,7 @@ export function createApp() {
     if (!cert) return res.status(404).json({ status: "not_found" });
     return res.json({
       status: cert.status,
+      certUuid: cert.certUuid,
       orgId: cert.orgId,
       certType: cert.certType,
       issueDate: cert.issueDate,
@@ -675,6 +801,9 @@ export function createApp() {
       manifestDigest: cert.manifestDigest,
       ipfsCid: cert.ipfsCid,
       manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+      presentationUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.presentationIpfsCid),
+      verificationUrl: `${env.PUBLIC_APP_BASE_URL}/verify/${cert.certUuid}`,
+      verifyPath: `/verify/${cert.certUuid}`,
       pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
     });
   });
@@ -697,6 +826,9 @@ export function createApp() {
       manifestDigest: cert.manifestDigest,
       ipfsCid: cert.ipfsCid,
       manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+      presentationUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.presentationIpfsCid),
+      verificationUrl: `${env.PUBLIC_APP_BASE_URL}/verify/${cert.certUuid}`,
+      verifyPath: `/verify/${cert.certUuid}`,
       pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
     });
   });
@@ -722,6 +854,9 @@ export function createApp() {
         manifestDigest: cert.manifestDigest,
         ipfsCid: cert.ipfsCid,
         manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+        presentationUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.presentationIpfsCid),
+        verificationUrl: `${env.PUBLIC_APP_BASE_URL}/verify/${cert.certUuid}`,
+        verifyPath: `/verify/${cert.certUuid}`,
         pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
       });
     }
@@ -747,6 +882,9 @@ export function createApp() {
       manifestDigest: cert.manifestDigest,
       ipfsCid: cert.ipfsCid,
       manifestUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.ipfsCid),
+      presentationUri: ipfsGatewayUrl(env.IPFS_GATEWAY_PREFIX, cert.presentationIpfsCid),
+      verificationUrl: `${env.PUBLIC_APP_BASE_URL}/verify/${cert.certUuid}`,
+      verifyPath: `/verify/${cert.certUuid}`,
       pii: { holderName: "REDACTED", holderDob: "REDACTED", identifier: cert.identifierMasked }
     });
   });

@@ -1,6 +1,12 @@
 import crypto from "node:crypto";
 import { hash, compare } from "bcryptjs";
 import { Pool } from "pg";
+import { ORGANIZATION_CATEGORIES, type OrganizationCategory } from "./certificate-types.js";
+
+function parseOrgCategory(value: unknown): OrganizationCategory {
+  const s = String(value ?? "");
+  return (ORGANIZATION_CATEGORIES as readonly string[]).includes(s) ? (s as OrganizationCategory) : "other";
+}
 
 export type Role = "super_admin" | "org_admin";
 export type OrgStatus = "pending_review" | "approved" | "rejected";
@@ -23,6 +29,7 @@ export type OrgRecord = {
   orgType: "GOV" | "PVT";
   sector: string;
   domain: string;
+  organizationCategory: OrganizationCategory;
   status: OrgStatus;
   reviewReason: string | null;
   chainTxHash: string | null;
@@ -46,6 +53,8 @@ export type CertRecord = {
   manifestDigest: string;
   /** IPFS CID (v0 Qm… or v1 bafy…) of the manifest JSON; null if upload skipped or failed. */
   ipfsCid: string | null;
+  /** Branded PDF (QR + hash) pinned to IPFS; null if pin skipped or failed. */
+  presentationIpfsCid: string | null;
   revokedAt: string | null;
   revokeReason: string | null;
 };
@@ -363,6 +372,7 @@ class PostgresStore implements Store {
         org_type TEXT NOT NULL,
         sector TEXT NOT NULL,
         domain TEXT NOT NULL,
+        organization_category TEXT NOT NULL DEFAULT 'other',
         status TEXT NOT NULL,
         review_reason TEXT NULL,
         chain_tx_hash TEXT NULL,
@@ -383,6 +393,7 @@ class PostgresStore implements Store {
         identifier_masked TEXT NOT NULL,
         manifest_digest TEXT NOT NULL DEFAULT '',
         ipfs_cid TEXT NULL,
+        presentation_ipfs_cid TEXT NULL,
         revoked_at TEXT NULL,
         revoke_reason TEXT NULL
       );
@@ -405,7 +416,8 @@ class PostgresStore implements Store {
     `);
     await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS manifest_digest TEXT NOT NULL DEFAULT ''`);
     await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS ipfs_cid TEXT NULL`);
-    await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS access_state TEXT NOT NULL DEFAULT 'active'`);
+    await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS organization_category TEXT NOT NULL DEFAULT 'other'`);
+    await this.pool.query(`ALTER TABLE certificates ADD COLUMN IF NOT EXISTS presentation_ipfs_cid TEXT NULL`);
     await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS access_reason TEXT NULL`);
     await this.pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS cool_off_until TEXT NULL`);
   }
@@ -435,9 +447,23 @@ class PostgresStore implements Store {
   ) {
     const status: OrgStatus = "pending_review";
     await this.pool.query(
-      `INSERT INTO organizations (org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [input.orgId, input.name, input.city, input.orgType, input.sector, input.domain, status, null, null, "active", null, null]
+      `INSERT INTO organizations (org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        input.orgId,
+        input.name,
+        input.city,
+        input.orgType,
+        input.sector,
+        input.domain,
+        input.organizationCategory,
+        status,
+        null,
+        null,
+        "active",
+        null,
+        null
+      ]
     );
     return {
       ...input,
@@ -452,7 +478,7 @@ class PostgresStore implements Store {
 
   async listPendingOrgs() {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='pending_review'"
+      "SELECT org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='pending_review'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,
@@ -461,6 +487,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -472,7 +499,7 @@ class PostgresStore implements Store {
 
   async listApprovedOrgs() {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='approved'"
+      "SELECT org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='approved'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,
@@ -481,6 +508,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -492,7 +520,7 @@ class PostgresStore implements Store {
 
   async listRejectedOrgs() {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='rejected'"
+      "SELECT org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE status='rejected'"
     );
     return result.rows.map((r) => ({
       orgId: r.org_id,
@@ -501,6 +529,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -512,7 +541,7 @@ class PostgresStore implements Store {
 
   async listPendingOrgsForReview(orgId: string) {
     const result = await this.pool.query(
-      `SELECT o.org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash
+      `SELECT o.org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash
        FROM organizations o
        WHERE o.status='pending_review'
          AND o.org_id <> $1
@@ -529,6 +558,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash
@@ -538,7 +568,7 @@ class PostgresStore implements Store {
   async decideOrg(orgId: string, decision: "approve" | "reject", reason: string) {
     const status = decision === "approve" ? "approved" : "rejected";
     const result = await this.pool.query(
-      "UPDATE organizations SET status=$1, review_reason=$2 WHERE org_id=$3 RETURNING org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash",
+      "UPDATE organizations SET status=$1, review_reason=$2 WHERE org_id=$3 RETURNING org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until",
       [status, reason, orgId]
     );
     if (!result.rowCount) return null;
@@ -550,19 +580,19 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
-      chainTxHash: r.chain_tx_hash
-      ,
+      chainTxHash: r.chain_tx_hash,
       accessState: r.access_state,
       accessReason: r.access_reason,
       coolOffUntil: r.cool_off_until
-    };
+    } as OrgRecord;
   }
 
   async getOrgById(orgId: string) {
     const result = await this.pool.query(
-      "SELECT org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE org_id=$1 LIMIT 1",
+      "SELECT org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until FROM organizations WHERE org_id=$1 LIMIT 1",
       [orgId]
     );
     if (!result.rowCount) return null;
@@ -574,6 +604,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -585,7 +616,7 @@ class PostgresStore implements Store {
 
   async listOrgReviewViewsByStatus(status: OrgStatus) {
     const result = await this.pool.query(
-      `SELECT o.org_id,o.name,o.city,o.org_type,o.sector,o.domain,o.status,o.review_reason,o.chain_tx_hash,o.access_state,o.access_reason,o.cool_off_until,
+      `SELECT o.org_id,o.name,o.city,o.org_type,o.sector,o.domain,o.organization_category,o.status,o.review_reason,o.chain_tx_hash,o.access_state,o.access_reason,o.cool_off_until,
               (SELECT u.email FROM users u WHERE u.role='org_admin' AND u.org_id=o.org_id ORDER BY u.user_id ASC LIMIT 1) AS admin_email,
               (SELECT COUNT(1) FROM certificates c WHERE c.org_id=o.org_id) AS certificate_count
        FROM organizations o
@@ -600,6 +631,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -616,7 +648,7 @@ class PostgresStore implements Store {
       `UPDATE organizations
        SET access_state=$1, access_reason=$2, cool_off_until=$3
        WHERE org_id=$4
-       RETURNING org_id,name,city,org_type,sector,domain,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until`,
+       RETURNING org_id,name,city,org_type,sector,domain,organization_category,status,review_reason,chain_tx_hash,access_state,access_reason,cool_off_until`,
       [accessState, reason, accessState === "cooloff" ? (coolOffUntil ?? null) : null, orgId]
     );
     if (!result.rowCount) return null;
@@ -628,6 +660,7 @@ class PostgresStore implements Store {
       orgType: r.org_type,
       sector: r.sector,
       domain: r.domain,
+      organizationCategory: parseOrgCategory(r.organization_category),
       status: r.status,
       reviewReason: r.review_reason,
       chainTxHash: r.chain_tx_hash,
@@ -667,8 +700,8 @@ class PostgresStore implements Store {
     const cert: CertRecord = { ...input, status: "verified", revokedAt: null, revokeReason: null };
     await this.pool.query(
       `INSERT INTO certificates
-       (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,manifest_digest,ipfs_cid,revoked_at,revoke_reason)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+       (cert_uuid,org_id,cert_type,cert_hash,issue_date,tx_hash,status,holder_name_encrypted,holder_dob_encrypted,identifier_masked,manifest_digest,ipfs_cid,presentation_ipfs_cid,revoked_at,revoke_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         cert.certUuid,
         cert.orgId,
@@ -682,6 +715,7 @@ class PostgresStore implements Store {
         cert.identifierMasked,
         cert.manifestDigest,
         cert.ipfsCid,
+        cert.presentationIpfsCid,
         cert.revokedAt,
         cert.revokeReason
       ]
@@ -708,6 +742,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -728,6 +763,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -758,6 +794,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     })) as CertRecord[];
@@ -780,6 +817,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
@@ -805,6 +843,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;
@@ -937,6 +976,7 @@ class PostgresStore implements Store {
       identifierMasked: c.identifier_masked,
       manifestDigest: c.manifest_digest ?? "",
       ipfsCid: c.ipfs_cid ?? null,
+      presentationIpfsCid: c.presentation_ipfs_cid ?? null,
       revokedAt: c.revoked_at,
       revokeReason: c.revoke_reason
     } as CertRecord;

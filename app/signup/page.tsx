@@ -21,6 +21,13 @@ export default function SignupPage() {
     city: "",
     orgType: "PVT" as OrgType,
     sector: "",
+    organizationCategory: "education" as
+      | "education"
+      | "healthcare"
+      | "corporate"
+      | "government"
+      | "nonprofit"
+      | "other",
     domain: "",
     adminEmail: "",
     adminPassword: "",
@@ -219,6 +226,28 @@ export default function SignupPage() {
                   {city.name}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#cbd5e1", gridColumn: "1 / -1" }}>
+            Organization focus (drives certificate types you can issue)
+            <select
+              value={form.organizationCategory}
+              onChange={(e) =>
+                updateField(
+                  "organizationCategory",
+                  e.target.value as typeof form.organizationCategory
+                )
+              }
+              required
+              style={{ border: "2px solid #f8fafc", padding: "12px 14px", fontSize: "14px", background: "#05070d", color: "#e2e8f0" }}
+            >
+              <option value="education">Education (schools, colleges, universities)</option>
+              <option value="healthcare">Healthcare (hospitals, clinics)</option>
+              <option value="corporate">Corporate (employers, enterprises)</option>
+              <option value="government">Government / public sector</option>
+              <option value="nonprofit">Nonprofit / NGO</option>
+              <option value="other">Other</option>
             </select>
           </label>
 

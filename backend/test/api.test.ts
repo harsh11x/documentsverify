@@ -11,14 +11,23 @@ function token(role: "org_admin" | "super_admin", orgId: string | null = null) {
   return jwt.sign({ userId: "test-user", email: "test@local", role, orgId }, process.env.JWT_ACCESS_SECRET as string);
 }
 
-async function registerOrg(app: ReturnType<typeof createApp>, suffix: string) {
+async function registerOrg(
+  app: ReturnType<typeof createApp>,
+  suffix: string,
+  opts?: { organizationCategory?: string; sector?: string }
+) {
+  const organizationCategory = opts?.organizationCategory ?? "education";
+  const sector = opts?.sector ?? "Education";
   const res = await request(app).post("/api/org/register").send({
     name: `Org ${suffix}`,
     city: "Delhi",
     orgType: "PVT",
-    sector: "Education",
+    sector,
+    organizationCategory,
     domain: `${suffix}.edu`,
-    adminEmail: `${suffix}@test.local`
+    adminEmail: `${suffix}@test.local`,
+    adminPassword: "TempPassw0rd!",
+    adminPhone: "+919876543210"
   });
   expect(res.status).toBe(201);
   return res.body.orgId as string;
@@ -51,6 +60,18 @@ describe("backend-api", () => {
     });
   });
 
+  it("returns certificate type options for org category", async () => {
+    const app = createApp();
+    const orgId = await registerOrg(app, "type-options-org");
+    const res = await request(app)
+      .get("/api/certificates/type-options")
+      .set("Authorization", `Bearer ${token("org_admin", orgId)}`);
+    expect(res.status).toBe(200);
+    expect(res.body.organizationCategory).toBe("education");
+    expect(Array.isArray(res.body.certificateTypes)).toBe(true);
+    expect(res.body.certificateTypes.length).toBeGreaterThan(3);
+  });
+
   it("returns health status", async () => {
     const app = createApp();
     const res = await request(app).get("/health");
@@ -67,7 +88,7 @@ describe("backend-api", () => {
       .send({
         orgId: issuerOrgId,
         branchId: "branch-1",
-        certType: "Degree",
+        certType: "Undergraduate Degree Certificate",
         identifierType: "Roll Number",
         identifierValue: "RN-999",
         holderName: "Secret Holder",
@@ -90,16 +111,19 @@ describe("backend-api", () => {
     const app = createApp();
     const issuerOrgId = await registerOrg(app, "issuer-direct");
     await approveOrgAsSuperAdmin(app, issuerOrgId);
-    const issueRes = await request(app).post("/api/certificates/issue").send({
-      orgId: issuerOrgId,
-      branchId: "branch-1",
-      certType: "Degree",
-      identifierType: "Roll Number",
-      identifierValue: "RN-12345",
-      holderName: "Alice Example",
-      holderDob: "2000-01-01",
-      issueDate: "2026-04-13"
-    }).set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
+    const issueRes = await request(app)
+      .post("/api/certificates/issue")
+      .send({
+        orgId: issuerOrgId,
+        branchId: "branch-1",
+        certType: "Secondary School Certificate (Class 10)",
+        identifierType: "Roll Number",
+        identifierValue: "RN-12345",
+        holderName: "Alice Example",
+        holderDob: "2000-01-01",
+        issueDate: "2026-04-13"
+      })
+      .set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
 
     expect(issueRes.status).toBe(201);
     expect(issueRes.body.certUuid).toBeTruthy();
@@ -107,6 +131,8 @@ describe("backend-api", () => {
     expect(issueRes.body.status).toBe("verified");
     expect(issueRes.body.manifestDigest).toMatch(/^[a-f0-9]{64}$/);
     expect(issueRes.body.ipfsCid).toMatch(/^Qm/);
+    expect(issueRes.body.presentationIpfsCid).toMatch(/^Qm/);
+    expect(String(issueRes.body.verificationUrl)).toContain(issueRes.body.certUuid);
 
     const verifyRes = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
     expect(verifyRes.status).toBe(200);
@@ -115,35 +141,45 @@ describe("backend-api", () => {
     expect(verifyRes.body.pii.identifier).toContain("****");
     expect(verifyRes.body.status).toBe("verified");
     expect(verifyRes.body.manifestDigest).toBe(issueRes.body.manifestDigest);
+    expect(verifyRes.body.certUuid).toBe(issueRes.body.certUuid);
   });
 
   it("verifies by org and identifier, then revokes", async () => {
     const app = createApp();
-    const issuerOrgId = await registerOrg(app, "issuer-revoke");
+    const issuerOrgId = await registerOrg(app, "issuer-revoke", {
+      organizationCategory: "corporate",
+      sector: "Technology"
+    });
     await approveOrgAsSuperAdmin(app, issuerOrgId);
-    const issueRes = await request(app).post("/api/certificates/issue").send({
-      orgId: issuerOrgId,
-      branchId: "branch-1",
-      certType: "Employment",
-      identifierType: "Employee ID",
-      identifierValue: "EMP-887766",
-      holderName: "Bob Example",
-      holderDob: "1992-10-10",
-      issueDate: "2026-04-13"
-    }).set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
+    const issueRes = await request(app)
+      .post("/api/certificates/issue")
+      .send({
+        orgId: issuerOrgId,
+        branchId: "branch-1",
+        certType: "Employment / Experience Certificate",
+        identifierType: "Employee ID",
+        identifierValue: "EMP-887766",
+        holderName: "Bob Example",
+        holderDob: "1992-10-10",
+        issueDate: "2026-04-13"
+      })
+      .set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
 
     const lookupRes = await request(app).post("/api/public/verify").send({
       orgId: issuerOrgId,
-      certType: "Employment",
+      certType: "Employment / Experience Certificate",
       identifierValue: "EMP-887766"
     });
     expect(lookupRes.status).toBe(200);
     expect(lookupRes.body.status).toBe("verified");
 
-    const revokeRes = await request(app).post("/api/certificates/revoke").send({
-      certUuid: issueRes.body.certUuid,
-      reason: "Administrative revoke"
-    }).set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
+    const revokeRes = await request(app)
+      .post("/api/certificates/revoke")
+      .send({
+        certUuid: issueRes.body.certUuid,
+        reason: "Administrative revoke"
+      })
+      .set("Authorization", `Bearer ${token("org_admin", issuerOrgId)}`);
     expect(revokeRes.status).toBe(200);
 
     const verifyAfterRevoke = await request(app).get(`/api/public/verify/${issueRes.body.certUuid}`);
@@ -191,8 +227,11 @@ describe("backend-api", () => {
       city: "Delhi",
       orgType: "PVT",
       sector: "Education",
-      domain: "School",
-      adminEmail: "owner@test.local"
+      organizationCategory: "education",
+      domain: "school-test-onboarding.edu",
+      adminEmail: "owner@test.local",
+      adminPassword: "TempPassw0rd!",
+      adminPhone: "+919876543210"
     });
     expect(registerRes.status).toBe(201);
 

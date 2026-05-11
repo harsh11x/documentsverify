@@ -89,3 +89,71 @@ export async function uploadJsonToIpfs(payload: unknown, filename: string): Prom
 
   return null;
 }
+
+function syntheticBufferCid(buffer: Buffer, filename: string): IpfsPinResult {
+  const h = crypto.createHash("sha256").update(buffer).update(filename).digest("hex");
+  return { cid: `Qm${h.slice(0, 44)}` };
+}
+
+/** Pin arbitrary bytes (e.g. PDF certificate) to Pinata or Kubo. */
+export async function uploadBufferToIpfs(
+  buffer: Buffer,
+  filename: string,
+  mimeType: string
+): Promise<IpfsPinResult | null> {
+  const pinataJwt = process.env.IPFS_PINATA_JWT?.trim();
+  if (pinataJwt) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const form = new FormData();
+        form.append("file", new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
+        const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${pinataJwt}` },
+          body: form
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          console.error(`[ipfs] Pinata pinFile failed status=${res.status} body=${errText.slice(0, 500)}`);
+          if (attempt === 0) await sleep(400);
+          continue;
+        }
+        const data = (await res.json()) as { IpfsHash?: string };
+        if (data.IpfsHash) return { cid: data.IpfsHash };
+      } catch (e) {
+        console.error("[ipfs] Pinata file upload error", e);
+        if (attempt === 0) await sleep(400);
+      }
+    }
+    return null;
+  }
+
+  const kuboBase = process.env.IPFS_KUBO_API_URL?.trim().replace(/\/$/, "");
+  if (kuboBase) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const form = new FormData();
+        form.append("file", new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
+        const res = await fetch(`${kuboBase}/api/v0/add?pin=true`, { method: "POST", body: form });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          console.error(`[ipfs] Kubo add file failed status=${res.status} body=${errText.slice(0, 500)}`);
+          await sleep(500 * (attempt + 1));
+          continue;
+        }
+        const hash = parseKuboAddResponse(await res.text());
+        if (hash) return { cid: hash };
+      } catch (e) {
+        console.error("[ipfs] Kubo file upload error", e);
+        await sleep(500 * (attempt + 1));
+      }
+    }
+    return null;
+  }
+
+  if (process.env.NODE_ENV === "test") {
+    return syntheticBufferCid(buffer, filename);
+  }
+
+  return null;
+}

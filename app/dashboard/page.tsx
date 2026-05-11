@@ -15,6 +15,8 @@ type Certificate = {
   identifierMasked: string;
   ipfsCid?: string | null;
   manifestUri?: string | null;
+  presentationUri?: string | null;
+  verificationUrl?: string | null;
 };
 
 type OrgReviewItem = {
@@ -64,6 +66,7 @@ type OrgMe = {
   orgType: string;
   sector: string;
   domain: string;
+  organizationCategory?: string;
   status: string;
   reviewReason: string | null;
   chainTxHash: string | null;
@@ -79,6 +82,15 @@ type OrgRegistrationVoteSummary = {
   requiredMajority: number;
   eligibleVoterCount: number;
 };
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -97,9 +109,11 @@ export default function DashboardPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [submittedFilter, setSubmittedFilter] = useState<"all" | "verified" | "revoked">("all");
   const [myOrg, setMyOrg] = useState<{ org: OrgMe; voteSummary: OrgRegistrationVoteSummary } | null>(null);
+  const [certificateTypes, setCertificateTypes] = useState<string[]>([]);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
 
   const [issueForm, setIssueForm] = useState({
-    certType: "GENERAL",
+    certType: "",
     identifierValue: "",
     holderName: "",
     holderDob: "",
@@ -136,6 +150,20 @@ export default function DashboardPage() {
       if (!response.ok) return;
       const data = (await response.json()) as { org: OrgMe; voteSummary: OrgRegistrationVoteSummary };
       setMyOrg(data);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function loadCertificateTypeOptions() {
+    if (!token || role !== "org_admin") return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/certificates/type-options`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { certificateTypes?: string[] };
+      setCertificateTypes(Array.isArray(data.certificateTypes) ? data.certificateTypes : []);
     } catch {
       /* ignore */
     }
@@ -202,6 +230,7 @@ export default function DashboardPage() {
     void loadCertificates();
     void loadReviewWorkflows();
     void loadMyOrg();
+    void loadCertificateTypeOptions();
   }, [token, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -210,9 +239,25 @@ export default function DashboardPage() {
       void loadCertificates();
       void loadReviewWorkflows();
       void loadMyOrg();
+      void loadCertificateTypeOptions();
     }, 15000);
     return () => window.clearInterval(interval);
   }, [token, role]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!certificateTypes.length) return;
+    setIssueForm((prev) => {
+      if (prev.certType && certificateTypes.includes(prev.certType)) return prev;
+      return { ...prev, certType: certificateTypes[0] ?? "" };
+    });
+  }, [certificateTypes]);
+
+  function logout() {
+    localStorage.removeItem("docverify_access_token");
+    localStorage.removeItem("docverify_role");
+    localStorage.removeItem("docverify_org_id");
+    router.replace("/");
+  }
 
   async function onIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -222,8 +267,26 @@ export default function DashboardPage() {
       setNotice("No organization context found for this account.");
       return;
     }
+    if (!issueForm.certType) {
+      setNotice("Select a certificate type from the list for your organization.");
+      return;
+    }
     setNotice("Issuing certificate...");
     try {
+      let sourceDocumentBase64: string | undefined;
+      let sourceDocumentMimeType: "application/pdf" | "image/png" | "image/jpeg" | undefined;
+      if (sourceFile) {
+        const allowed = ["application/pdf", "image/png", "image/jpeg"] as const;
+        if (!allowed.includes(sourceFile.type as (typeof allowed)[number])) {
+          setNotice("Source file must be PDF, PNG, or JPEG.");
+          return;
+        }
+        const dataUrl = await readFileAsDataUrl(sourceFile);
+        const comma = dataUrl.indexOf(",");
+        sourceDocumentBase64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+        sourceDocumentMimeType = sourceFile.type as (typeof allowed)[number];
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/certificates/issue`, {
         method: "POST",
         headers: {
@@ -238,7 +301,10 @@ export default function DashboardPage() {
           identifierValue: issueForm.identifierValue,
           holderName: issueForm.holderName,
           holderDob: issueForm.holderDob,
-          issueDate: issueForm.issueDate
+          issueDate: issueForm.issueDate,
+          ...(sourceDocumentBase64 && sourceDocumentMimeType
+            ? { sourceDocumentBase64, sourceDocumentMimeType }
+            : {})
         })
       });
       const data = await response.json();
@@ -248,12 +314,17 @@ export default function DashboardPage() {
             ? data.message
             : typeof data?.error === "string"
               ? data.error
-              : "Issue failed. Check input values, org approval, and IPFS (run infra:up or set IPFS_PINATA_JWT).";
+              : "Issue failed. Check input values, org approval, certificate type for your sector, and IPFS (run infra:up or set IPFS_PINATA_JWT).";
         setNotice(msg);
         return;
       }
-      setNotice(`Certificate issued: ${data.certUuid}`);
+      const verifyLine =
+        typeof data.verificationUrl === "string" ? ` Verify: ${data.verificationUrl}` : "";
+      const pdfLine =
+        typeof data.presentationUri === "string" ? ` Branded PDF: ${data.presentationUri}` : "";
+      setNotice(`Certificate issued: ${data.certUuid}.${verifyLine}${pdfLine}`);
       setIssueForm((prev) => ({ ...prev, identifierValue: "", holderName: "", holderDob: "" }));
+      setSourceFile(null);
       await Promise.all([loadCertificates(), loadReviewWorkflows(), loadMyOrg()]);
     } catch {
       setNotice("Issue failed due to network/backend error.");
@@ -304,8 +375,10 @@ export default function DashboardPage() {
           ? `${data.manifestDigest.slice(0, 8)}…${data.manifestDigest.slice(-6)}`
           : "N/A";
       const ipfsLine = data.ipfsCid ? ` | IPFS: ${data.ipfsCid}` : "";
+      const verifyUrl = typeof data.verificationUrl === "string" ? data.verificationUrl : "";
+      const verifyExtra = verifyUrl ? ` | Public verify: ${verifyUrl}` : "";
       setVerifyResult(
-        `Status: ${data.status} | Org: ${data.orgId} | Type: ${data.certType} | Tx: ${data.txHash || "N/A"} | Manifest: ${digestShort}${ipfsLine}`
+        `Status: ${data.status} | Org: ${data.orgId} | Type: ${data.certType} | Tx: ${data.txHash || "N/A"} | Manifest: ${digestShort}${ipfsLine}${verifyExtra}`
       );
     } catch {
       setVerifyResult("Verification failed.");
@@ -366,6 +439,24 @@ export default function DashboardPage() {
               </p>
             </div>
             <div style={{ alignSelf: isMobile ? "flex-start" : "center", display: "grid", gap: "8px", textAlign: isMobile ? "left" : "right" }}>
+              <button
+                type="button"
+                onClick={() => logout()}
+                style={{
+                  padding: "10px 14px",
+                  border: "2px solid #f87171",
+                  background: "#450a0a",
+                  color: "#fecaca",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.18em",
+                  cursor: "pointer",
+                  justifySelf: isMobile ? "stretch" : "end"
+                }}
+              >
+                Log out
+              </button>
               {orgAwaitingVotes ? (
                 <div
                   style={{
@@ -445,7 +536,36 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <form onSubmit={onIssue} style={{ display: "grid", gap: "10px", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
-                  <input value={issueForm.certType} onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))} placeholder="Certificate Type" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
+                  {certificateTypes.length === 0 ? (
+                    <p style={{ gridColumn: "1 / -1", margin: 0, color: "#94a3b8", fontSize: "13px" }}>
+                      Loading allowed certificate types for your organization… If this persists, refresh the page.
+                    </p>
+                  ) : (
+                    <label style={{ display: "grid", gap: "6px", gridColumn: isMobile ? "1 / -1" : "1 / -1", fontSize: "12px", color: "#94a3b8" }}>
+                      Certificate type
+                      <select
+                        value={issueForm.certType}
+                        onChange={(e) => setIssueForm((p) => ({ ...p, certType: e.target.value }))}
+                        required
+                        style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }}
+                      >
+                        {certificateTypes.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <label style={{ display: "grid", gap: "6px", gridColumn: "1 / -1", fontSize: "12px", color: "#94a3b8" }}>
+                    Prior certificate / marksheet / supporting scan (optional — PDF, PNG, or JPEG; we store SHA-256 only)
+                    <input
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg"
+                      onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
+                      style={{ padding: "8px", border: "2px dashed #334155", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }}
+                    />
+                  </label>
                   <input value={issueForm.identifierValue} onChange={(e) => setIssueForm((p) => ({ ...p, identifierValue: e.target.value }))} placeholder="Identifier Value" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                   <input value={issueForm.holderName} onChange={(e) => setIssueForm((p) => ({ ...p, holderName: e.target.value }))} placeholder="Holder Name" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
                   <input type="date" value={issueForm.holderDob} onChange={(e) => setIssueForm((p) => ({ ...p, holderDob: e.target.value }))} placeholder="Holder DOB (YYYY-MM-DD)" required style={{ padding: "12px", border: "2px solid #f8fafc", borderRadius: "0px", background: "#05070d", color: "#e2e8f0" }} />
@@ -491,7 +611,7 @@ export default function DashboardPage() {
                 {role === "super_admin" ? "All Certificates" : "Your Certificate Status"}
               </h2>
             </div>
-            <button onClick={() => void Promise.all([loadCertificates(), loadReviewWorkflows(), loadMyOrg()])} style={{ padding: "10px 12px", border: "2px solid #f8fafc", background: "#05070d", color: "#f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px" }}>
+            <button onClick={() => void Promise.all([loadCertificates(), loadReviewWorkflows(), loadMyOrg(), loadCertificateTypeOptions()])} style={{ padding: "10px 12px", border: "2px solid #f8fafc", background: "#05070d", color: "#f8fafc", borderRadius: "0px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "10px" }}>
               Refresh
             </button>
           </div>
@@ -516,7 +636,9 @@ export default function DashboardPage() {
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Type</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Issue Date</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Status</th>
-                    <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>IPFS</th>
+                    <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Manifest</th>
+                    <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>PDF</th>
+                    <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Verify</th>
                     <th style={{ textAlign: "left", padding: "10px", borderTop: "1px solid rgba(117,124,125,0.2)", borderBottom: "1px solid rgba(117,124,125,0.2)", fontSize: "10px", color: "#596061", textTransform: "uppercase", letterSpacing: "0.2em" }}>Identifier</th>
                   </tr>
                 </thead>
@@ -542,6 +664,24 @@ export default function DashboardPage() {
                           {item.manifestUri ? (
                             <a href={item.manifestUri} target="_blank" rel="noreferrer" style={{ color: "#38bdf8", fontSize: "11px" }}>
                               {item.ipfsCid ? `${String(item.ipfsCid).slice(0, 10)}…` : "Open"}
+                            </a>
+                          ) : (
+                            <span style={{ color: "#64748b", fontSize: "11px" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>
+                          {item.presentationUri ? (
+                            <a href={item.presentationUri} target="_blank" rel="noreferrer" style={{ color: "#a78bfa", fontSize: "11px" }}>
+                              PDF
+                            </a>
+                          ) : (
+                            <span style={{ color: "#64748b", fontSize: "11px" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid rgba(117,124,125,0.12)" }}>
+                          {item.verificationUrl ? (
+                            <a href={item.verificationUrl} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontSize: "11px" }}>
+                              Open
                             </a>
                           ) : (
                             <span style={{ color: "#64748b", fontSize: "11px" }}>—</span>
