@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocVerifyBlock — System Flowcharts</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #05070d;
+      --panel: #0b1220;
+      --border: #f8fafc;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --blue: #60a5fa;
+      --orange: #fb923c;
+      --purple: #a78bfa;
+      --red: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    aside {
+      background: var(--panel);
+      border-right: 3px solid var(--border);
+      padding: 20px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    aside h1 {
+      font-size: 1.1rem;
+      margin: 0 0 4px;
+      color: var(--border);
+      letter-spacing: 0.02em;
+    }
+
+    aside .subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 20px;
+    }
+
+    nav { display: flex; flex-direction: column; gap: 6px; }
+
+    nav button {
+      text-align: left;
+      padding: 10px 12px;
+      border: 2px solid transparent;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.9rem;
+      border-radius: 0;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    nav button:hover {
+      border-color: #334155;
+      background: #0f172a;
+    }
+
+    nav button.active {
+      border-color: var(--border);
+      background: #1e293b;
+      font-weight: 700;
+    }
+
+    nav .flow-a.active { border-left: 4px solid var(--blue); }
+    nav .flow-b.active { border-left: 4px solid var(--orange); }
+    nav .flow-c.active { border-left: 4px solid var(--purple); }
+
+    main {
+      padding: 24px 28px 48px;
+      overflow-x: auto;
+    }
+
+    .panel { display: none; animation: fade 0.25s ease; }
+    .panel.active { display: block; }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      color: var(--border);
+    }
+
+    .desc {
+      color: var(--muted);
+      max-width: 720px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .toolbar button, .toolbar label {
+      padding: 8px 14px;
+      border: 2px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+    }
+
+    .toolbar button:hover { background: #1e293b; }
+
+    .toolbar input[type="range"] {
+      width: 120px;
+      accent-color: var(--accent);
+    }
+
+    .chart-wrap {
+      background: #0f172a;
+      border: 3px solid var(--border);
+      box-shadow: 12px 12px 0 #1e293b;
+      padding: 24px;
+      overflow: auto;
+      min-height: 400px;
+    }
+
+    .chart-inner {
+      transform-origin: top left;
+      transition: transform 0.15s ease;
+    }
+
+    .mermaid { display: flex; justify-content: center; }
+    .mermaid svg { max-width: none !important; }
+
+    /* Shape legend — visual samples */
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .legend-card {
+      background: var(--panel);
+      border: 2px solid #334155;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .shape-sample { width: 100px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #0f172a; }
+
+    .shape-oval {
+      width: 90px; height: 40px;
+      border-radius: 999px;
+      background: #c8e6c9;
+      border: 2px solid #1b5e20;
+    }
+
+    .shape-rect {
+      width: 90px; height: 40px;
+      background: #e2e8f0;
+      border: 2px solid #334155;
+    }
+
+    .shape-diamond {
+      width: 44px; height: 44px;
+      background: #fff9c4;
+      border: 2px solid #f57f17;
+      transform: rotate(45deg);
+    }
+
+    .shape-diamond span {
+      transform: rotate(-45deg);
+      display: block;
+      font-size: 0.55rem;
+      width: 60px;
+      text-align: center;
+      margin-left: -8px;
+    }
+
+    .shape-para {
+      width: 90px; height: 36px;
+      background: #cbd5e1;
+      border: 2px solid #475569;
+      transform: skewX(-12deg);
+    }
+
+    .shape-para span { transform: skewX(12deg); display: block; font-size: 0.65rem; }
+
+    .shape-db {
+      width: 70px; height: 44px;
+      background: #bbdefb;
+      border: 2px solid #0d47a1;
+      border-radius: 8px 8px 4px 4px;
+      position: relative;
+    }
+
+    .shape-db::before {
+      content: "";
+      position: absolute;
+      top: -8px; left: 0; right: 0;
+      height: 14px;
+      background: #90caf9;
+      border: 2px solid #0d47a1;
+      border-radius: 50% / 100% 100% 0 0;
+    }
+
+    .shape-doc {
+      width: 90px; height: 40px;
+      background: #e1bee7;
+      border: 3px double #4a148c;
+    }
+
+    .color-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .color-key span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .color-key i {
+      width: 14px; height: 14px;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 2px solid #334155;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    th { background: #1e293b; color: var(--border); }
+
+    tr:nth-child(even) td { background: #0f172a; }
+
+    code {
+      background: #1e293b;
+      padding: 2px 6px;
+      font-size: 0.85em;
+      color: var(--accent);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .badge-a { background: #1e3a5f; color: var(--blue); border: 1px solid var(--blue); }
+    .badge-b { background: #431407; color: var(--orange); border: 1px solid var(--orange); }
+    .badge-c { background: #3b0764; color: var(--purple); border: 1px solid var(--purple); }
+
+    footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid #334155;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { position: relative; height: auto; border-right: none; border-bottom: 3px solid var(--border); }
+    }
+
+    @media print {
+      aside, .toolbar { display: none; }
+      .panel { display: block !important; page-break-after: always; }
+      body { background: white; color: black; }
+      .chart-wrap { box-shadow: none; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>DocVerifyBlock</h1>
+      <p class="subtitle">System flowcharts GUI</p>
+      <nav id="nav">
+        <button type="button" data-panel="legend">Shape legend</button>
+        <button type="button" data-panel="overview" class="active">Overview</button>
+        <button type="button" data-panel="flow-a" class="flow-a">Flow A — Org signup</button>
+        <button type="button" data-panel="flow-b" class="flow-b">Flow B — Issue certificate</button>
+        <button type="button" data-panel="flow-c" class="flow-c">Flow C — Public verify</button>
+        <button type="button" data-panel="reference">URL reference</button>
+      </nav>
+      <footer style="margin-top: 24px; border: none; padding: 0;">
+        Open this file in any browser.<br />
+        Pair with <code style="color:#94a3b8">PROJECT_WORKFLOW_COMPLETE_GUIDE.md</code>
+      </footer>
+    </aside>
+
+    <main>
+      <!-- LEGEND -->
+      <section id="legend" class="panel">
+        <h2>Flowchart shape legend</h2>
+        <p class="desc">Standard ISO-style symbols used in all diagrams below.</p>
+        <div class="legend-grid">
+          <div class="legend-card">
+            <div class="shape-sample shape-oval">START / END</div>
+            <strong>Oval</strong>
+            <span>Terminator — begin or end of flow</span>
+          </div>
+          <div class="legend-card">
+            <div class="shape-sample shape-rect">PROCESS</div>
+            <strong>Rectangle</strong>
+            <span>Action, API call, or system step</span>
+          </div>
+          <div class="legend-card">
+            <div class="shape-sample"><div class="shape-diamond"><span>?</span></div></div>
+            <strong>Diamond</strong>
+            <span>Decision — yes / no branches</span>
+          </div>
+          <div class="legend-card">
+            <div class="shape-sample shape-para"><span>INPUT</span></div>
+            <strong>Parallelogram</strong>
+            <span>User input or displayed output</span>
+          </div>
+          <div class="legend-card">
+            <div class="shape-sample shape-db"></div>
+            <strong>Cylinder</strong>
+            <span>Postgres, IPFS, or blockchain store</span>
+          </div>
+          <div class="legend-card">
+            <div class="shape-sample shape-doc">PDF</div>
+            <strong>Double rectangle</strong>
+            <span>Document produced (certificate PDF)</span>
+          </div>
+        </div>
+        <div class="color-key">
+          <span><i style="background:#c8e6c9"></i> Start / End</span>
+          <span><i style="background:#fff9c4"></i> Decision</span>
+          <span><i style="background:#bbdefb"></i> Database</span>
+          <span><i style="background:#ffe0b2"></i> Blockchain / IPFS</span>
+          <span><i style="background:#ffcdd2"></i> Error / Rejected</span>
+          <span><i style="background:#e1bee7"></i> Document</span>
+        </div>
+      </section>
+
+      <!-- OVERVIEW -->
+      <section id="overview" class="panel active">
+        <span class="badge" style="background:#1e293b;color:#e2e8f0;border:1px solid #64748b">Overview</span>
+        <h2>How the three flows connect</h2>
+        <p class="desc">Signup &amp; approval → Issue certificate → Anyone verifies without login.</p>
+        <div class="toolbar">
+          <button type="button" data-zoom="out" data-target="zoom-overview">Zoom −</button>
+          <button type="button" data-zoom="in" data-target="zoom-overview">Zoom +</button>
+          <button type="button" data-zoom="reset" data-target="zoom-overview">Reset</button>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner" id="zoom-overview" style="transform:scale(1)">
+            <pre class="mermaid">
+flowchart LR
+  A([START]) --> B["Flow A: Org signup and approval"]
+  B --> C["Flow B: Issue certificate"]
+  C --> D["Flow C: Public verify"]
+  D --> E([END])
+  style A fill:#e8f5e9,stroke:#2e7d32
+  style E fill:#e8f5e9,stroke:#2e7d32
+  style B fill:#e3f2fd,stroke:#1565c0
+  style C fill:#fff3e0,stroke:#ef6c00
+  style D fill:#f3e5f5,stroke:#7b1fa2
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- FLOW A -->
+      <section id="flow-a" class="panel">
+        <span class="badge badge-a">Flow A</span>
+        <h2>Organization signup, login &amp; verification</h2>
+        <p class="desc">
+          New org registers at <code>/signup</code>, waits for majority votes from approved peers, then gets registered on-chain.
+        </p>
+        <div class="toolbar">
+          <button type="button" data-zoom="out" data-target="zoom-a">Zoom −</button>
+          <button type="button" data-zoom="in" data-target="zoom-a">Zoom +</button>
+          <button type="button" data-zoom="reset" data-target="zoom-a">Reset</button>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner" id="zoom-a" style="transform:scale(0.85)">
+            <pre class="mermaid">
+flowchart TD
+  S([START])
+  S --> IN1["INPUT: Open signup page"]
+  IN1 --> IN2["INPUT: Org details and admin credentials"]
+  IN2 --> P1["POST api org register"]
+  P1 --> D1[("DB: org pending_review")]
+  P1 --> D2[("DB: create org_admin user")]
+  P2["OUTPUT: Show orgId pending status"]
+  D1 --> P2
+  D2 --> P2
+  P2 --> IN3["INPUT: Open login page"]
+  IN3 --> IN4["INPUT: Email and password"]
+  IN4 --> P3["POST api auth login"]
+  P3 --> D3{"Credentials valid?"}
+  D3 -->|No| OUT_ERR["OUTPUT: Login error"]
+  OUT_ERR --> IN3
+  D3 -->|Yes| OUT1["OUTPUT: Store JWT in browser"]
+  OUT1 --> P4["Open dashboard"]
+  P4 --> ROLE{"Who is logged in?"}
+  ROLE -->|New org admin| P5["Wait for approval"]
+  ROLE -->|Reviewer| P6["View pending applications"]
+  P6 --> IN5["INPUT: Vote approve or deny"]
+  IN5 --> P7["POST api orgs vote"]
+  P7 --> D4[("DB: save vote")]
+  D4 --> DEC1{"Approvals >= majority?"}
+  DEC1 -->|Yes| P8["Set status approved"]
+  DEC1 -->|No| DEC2{"Denials >= majority?"}
+  DEC2 -->|Yes| P9["Set status rejected"]
+  DEC2 -->|No| P10["Need more votes"]
+  P10 --> P6
+  P9 --> END_REJECT([END rejected])
+  P8 --> P11["Enqueue org-register job"]
+  P11 --> P12["Worker: blockchain register org"]
+  P12 --> D5[("Chain: org tx")]
+  P12 --> P13["Callback org-registered"]
+  P13 --> D6[("DB: save chain_tx_hash")]
+  D6 --> END_APPROVE([END approved])
+  P5 --> DEC3{"Org approved yet?"}
+  DEC3 -->|No| P5
+  DEC3 -->|Yes| END_APPROVE
+  style S fill:#c8e6c9,stroke:#1b5e20
+  style END_APPROVE fill:#c8e6c9,stroke:#1b5e20
+  style END_REJECT fill:#ffcdd2,stroke:#b71c1c
+  style D1 fill:#bbdefb,stroke:#0d47a1
+  style D2 fill:#bbdefb,stroke:#0d47a1
+  style D4 fill:#bbdefb,stroke:#0d47a1
+  style D5 fill:#ffe0b2,stroke:#e65100
+  style D6 fill:#bbdefb,stroke:#0d47a1
+  style DEC1 fill:#fff9c4,stroke:#f57f17
+  style DEC2 fill:#fff9c4,stroke:#f57f17
+  style DEC3 fill:#fff9c4,stroke:#f57f17
+  style D3 fill:#fff9c4,stroke:#f57f17
+  style ROLE fill:#fff9c4,stroke:#f57f17
+  style IN1 fill:#cbd5e1,stroke:#475569
+  style IN2 fill:#cbd5e1,stroke:#475569
+  style IN3 fill:#cbd5e1,stroke:#475569
+  style IN4 fill:#cbd5e1,stroke:#475569
+  style IN5 fill:#cbd5e1,stroke:#475569
+  style P2 fill:#e2e8f0,stroke:#475569
+  style OUT1 fill:#e2e8f0,stroke:#475569
+  style OUT_ERR fill:#e2e8f0,stroke:#475569
+            </pre>
+          </div>
+        </div>
+        <p class="desc" style="margin-top:16px"><strong>Voting:</strong> Approved orgs (except applicant) + super_admin. Majority = floor(eligible/2)+1.</p>
+      </section>
+
+      <!-- FLOW B -->
+      <section id="flow-b" class="panel">
+        <span class="badge badge-b">Flow B</span>
+        <h2>Login, upload data &amp; issue certificate</h2>
+        <p class="desc">Approved org admin issues a credential; PDF + manifest go to IPFS; proof goes on-chain via worker.</p>
+        <div class="toolbar">
+          <button type="button" data-zoom="out" data-target="zoom-b">Zoom −</button>
+          <button type="button" data-zoom="in" data-target="zoom-b">Zoom +</button>
+          <button type="button" data-zoom="reset" data-target="zoom-b">Reset</button>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner" id="zoom-b" style="transform:scale(0.8)">
+            <pre class="mermaid">
+flowchart TD
+  S([START])
+  S --> IN1["INPUT: Org admin login"]
+  IN1 --> IN2["INPUT: Email and password"]
+  IN2 --> P1["POST api auth login"]
+  P1 --> DEC1{"Org approved?"}
+  DEC1 -->|No| END_BLOCK([END cannot issue])
+  DEC1 -->|Yes| P2["Open issue certificate form"]
+  P2 --> IN3["INPUT: Cert details and holder info"]
+  IN3 --> IN4["INPUT: Optional supporting file"]
+  IN4 --> P3["POST api certificates issue"]
+  P3 --> DEC2{"Valid cert type?"}
+  DEC2 -->|No| OUT_ERR["OUTPUT: invalid_cert_type"]
+  OUT_ERR --> IN3
+  DEC2 -->|Yes| P4["Compute certHash"]
+  P4 --> P5["Encrypt PII AES-256"]
+  P5 --> P6["Generate PDF with QR"]
+  P6 --> P7["Pin PDF to IPFS"]
+  P7 --> D1[("IPFS: certificate PDF")]
+  P6 --> P8["Build manifest JSON"]
+  P8 --> P9["Pin manifest to IPFS"]
+  P9 --> D2[("IPFS: manifest JSON")]
+  P9 --> P10["Insert certificate row"]
+  P10 --> D3[("DB: encrypted PII")]
+  P10 --> P11["Enqueue certificate-issue"]
+  P11 --> P12["Worker: on-chain issue"]
+  P12 --> D4[("Chain: cert proof")]
+  P12 --> P13["Callback certificate-issued"]
+  P13 --> D5[("DB: update tx_hash")]
+  D5 --> DOC["DOC: Certificate PDF"]
+  DOC --> OUT1["OUTPUT: certUuid and verify URL"]
+  OUT1 --> OUT2["OUTPUT: Share PDF with holder"]
+  OUT2 --> E([END ready to verify])
+  style S fill:#c8e6c9,stroke:#1b5e20
+  style E fill:#c8e6c9,stroke:#1b5e20
+  style END_BLOCK fill:#ffcdd2,stroke:#b71c1c
+  style D1 fill:#ffe0b2,stroke:#e65100
+  style D2 fill:#ffe0b2,stroke:#e65100
+  style D3 fill:#bbdefb,stroke:#0d47a1
+  style D4 fill:#ffe0b2,stroke:#e65100
+  style D5 fill:#bbdefb,stroke:#0d47a1
+  style DEC1 fill:#fff9c4,stroke:#f57f17
+  style DEC2 fill:#fff9c4,stroke:#f57f17
+  style DOC fill:#e1bee7,stroke:#4a148c
+  style IN1 fill:#cbd5e1,stroke:#475569
+  style IN2 fill:#cbd5e1,stroke:#475569
+  style IN3 fill:#cbd5e1,stroke:#475569
+  style IN4 fill:#cbd5e1,stroke:#475569
+  style OUT1 fill:#e2e8f0,stroke:#475569
+  style OUT2 fill:#e2e8f0,stroke:#475569
+  style OUT_ERR fill:#e2e8f0,stroke:#475569
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- FLOW C -->
+      <section id="flow-c" class="panel">
+        <span class="badge badge-c">Flow C</span>
+        <h2>Public verify &amp; retrieve document</h2>
+        <p class="desc">No login. Client enters ID or scans QR; system returns status and optional PDF from IPFS. PII always redacted.</p>
+        <div class="toolbar">
+          <button type="button" data-zoom="out" data-target="zoom-c">Zoom −</button>
+          <button type="button" data-zoom="in" data-target="zoom-c">Zoom +</button>
+          <button type="button" data-zoom="reset" data-target="zoom-c">Reset</button>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-inner" id="zoom-c" style="transform:scale(0.85)">
+            <pre class="mermaid">
+flowchart TD
+  S([START public verify])
+  S --> DEC1{"Lookup method?"}
+  DEC1 -->|QR link| IN1["INPUT: Open verify by UUID"]
+  DEC1 -->|Web form| IN2["INPUT: Org and identifier"]
+  DEC1 -->|Advanced| IN3["INPUT: UUID hash or txHash"]
+  IN1 --> P1["GET api public verify uuid"]
+  IN2 --> P2["POST api public verify"]
+  IN3 --> P3["POST api public verify query"]
+  P2 --> P4["Recompute certHash"]
+  P4 --> P5[("DB lookup")]
+  P1 --> P5
+  P3 --> P5
+  P5 --> DEC2{"Found?"}
+  DEC2 -->|No| OUT_FAIL["OUTPUT: Not found"]
+  OUT_FAIL --> E1([END])
+  DEC2 -->|Yes| DEC3{"Revoked?"}
+  DEC3 -->|Yes| OUT_REV["OUTPUT: REVOKED no PII"]
+  DEC3 -->|No| OUT_OK["OUTPUT: VERIFIED plus links"]
+  OUT_OK --> DEC4{"Download PDF?"}
+  OUT_REV --> E2([END])
+  DEC4 -->|No| E2
+  DEC4 -->|Yes| P6["Open presentation URI"]
+  P6 --> D1[("IPFS: branded PDF")]
+  D1 --> DOC["DOC: Holder certificate"]
+  DOC --> DEC5{"View manifest?"}
+  DEC5 -->|Yes| D2[("IPFS: manifest JSON")]
+  DEC5 -->|No| E3([END complete])
+  D2 --> E3
+  style S fill:#c8e6c9,stroke:#1b5e20
+  style E1 fill:#ffcdd2,stroke:#b71c1c
+  style E2 fill:#c8e6c9,stroke:#1b5e20
+  style E3 fill:#c8e6c9,stroke:#1b5e20
+  style P5 fill:#bbdefb,stroke:#0d47a1
+  style D1 fill:#ffe0b2,stroke:#e65100
+  style D2 fill:#ffe0b2,stroke:#e65100
+  style DEC1 fill:#fff9c4,stroke:#f57f17
+  style DEC2 fill:#fff9c4,stroke:#f57f17
+  style DEC3 fill:#fff9c4,stroke:#f57f17
+  style DEC4 fill:#fff9c4,stroke:#f57f17
+  style DEC5 fill:#fff9c4,stroke:#f57f17
+  style DOC fill:#e1bee7,stroke:#4a148c
+  style IN1 fill:#cbd5e1,stroke:#475569
+  style IN2 fill:#cbd5e1,stroke:#475569
+  style IN3 fill:#cbd5e1,stroke:#475569
+  style OUT_FAIL fill:#e2e8f0,stroke:#475569
+  style OUT_REV fill:#e2e8f0,stroke:#475569
+  style OUT_OK fill:#e2e8f0,stroke:#475569
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- REFERENCE -->
+      <section id="reference" class="panel">
+        <h2>Role &amp; URL quick reference</h2>
+        <p class="desc">Maps each step to the UI route and backend API.</p>
+        <table>
+          <thead>
+            <tr><th>Step</th><th>Who</th><th>UI</th><th>API</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Register org</td><td>Applicant</td><td><code>/signup</code></td><td><code>POST /api/org/register</code></td></tr>
+            <tr><td>Login</td><td>Org admin / super admin</td><td><code>/login</code></td><td><code>POST /api/auth/login</code></td></tr>
+            <tr><td>Vote on new org</td><td>Approved org admin, super_admin</td><td><code>/dashboard</code></td><td><code>POST /api/orgs/:orgId/vote</code></td></tr>
+            <tr><td>Issue certificate</td><td>Approved org admin</td><td><code>/dashboard</code></td><td><code>POST /api/certificates/issue</code></td></tr>
+            <tr><td>Verify by UUID</td><td>Public</td><td><code>/verify/[uuid]</code></td><td><code>GET /api/public/verify/:uuid</code></td></tr>
+            <tr><td>Verify by identifier</td><td>Public</td><td><code>/certificate-verification</code></td><td><code>POST /api/public/verify</code></td></tr>
+            <tr><td>List issuers</td><td>Public</td><td>verification dropdown</td><td><code>GET /api/public/orgs</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const defaultScales = {
+      "zoom-overview": 1,
+      "zoom-a": 0.85,
+      "zoom-b": 0.8,
+      "zoom-c": 0.85
+    };
+    const scales = { ...defaultScales };
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "dark",
+      securityLevel: "loose",
+      flowchart: {
+        curve: "basis",
+        htmlLabels: true,
+        useMaxWidth: false,
+        padding: 16,
+        nodeSpacing: 50,
+        rankSpacing: 60
+      },
+      themeVariables: {
+        darkMode: true,
+        background: "#0f172a",
+        primaryColor: "#1e293b",
+        primaryTextColor: "#e2e8f0",
+        primaryBorderColor: "#f8fafc",
+        lineColor: "#94a3b8",
+        secondaryColor: "#334155",
+        tertiaryColor: "#0b1220",
+        fontFamily: "Segoe UI, system-ui, sans-serif"
+      }
+    });
+
+    async function renderCharts() {
+      const blocks = document.querySelectorAll("pre.mermaid");
+      for (let i = 0; i < blocks.length; i++) {
+        const el = blocks[i];
+        if (el.getAttribute("data-rendered") === "true") continue;
+        const source = el.textContent.trim();
+        const id = "mmd-" + i;
+        try {
+          const { svg } = await mermaid.render(id, source);
+          el.innerHTML = svg;
+          el.setAttribute("data-rendered", "true");
+        } catch (err) {
+          console.error("Mermaid render failed for block", i, err);
+          el.innerHTML =
+            '<p style="color:#fda4af;padding:1rem">Diagram failed to render. Hard-refresh (Cmd+Shift+R).</p>';
+        }
+      }
+    }
+
+    window.addEventListener("load", () => renderCharts());
+
+    document.querySelectorAll("#nav button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.panel;
+        document.querySelectorAll("#nav button").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(id).classList.add("active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        requestAnimationFrame(() => renderCharts());
+      });
+    });
+
+    document.querySelectorAll("[data-zoom]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.dataset.target;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        const step = 0.1;
+        const def = defaultScales[targetId] ?? 1;
+        let s = scales[targetId] ?? def;
+        if (btn.dataset.zoom === "in") s = Math.min(2, s + step);
+        else if (btn.dataset.zoom === "out") s = Math.max(0.4, s - step);
+        else s = def;
+        scales[targetId] = s;
+        el.style.transform = `scale(${s})`;
+      });
+    });
+  </script>
+</body>
+</html>
